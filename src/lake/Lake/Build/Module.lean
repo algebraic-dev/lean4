@@ -170,7 +170,7 @@ def Module.recBuildLean (mod : Module) : FetchM (BuildJob Unit) := do
     let srcTrace : BuildTrace ← computeTrace { path := mod.leanFile : TextFilePath }
     let modTrace := (← getLeanTrace).mix <| argTrace.mix <| srcTrace.mix depTrace
     let upToDate ← buildUnlessUpToDate? (oldTrace := srcTrace.mtime) mod modTrace mod.traceFile do
-      compileLeanModule mod.leanFile mod.oleanFile mod.ileanFile mod.cFile mod.bcFile?
+      compileLeanModule mod.leanFile mod.oleanFile mod.ileanFile mod.cFile mod.jsFile mod.bcFile?
         (← getLeanPath) mod.rootDir dynlibs dynlibPath (mod.weakLeanArgs ++ mod.leanArgs) (← getLean)
       mod.clearOutputHashes
     unless upToDate && (← getTrustHash) do
@@ -206,6 +206,14 @@ def Module.bcFacetConfig : ModuleFacetConfig bcFacet :=
     (← mod.leanArts.fetch).bindSync fun _ _ =>
       -- do content-aware hashing so that we avoid recompiling unchanged bitcode files
       return (mod.bcFile, ← fetchFileTrace mod.bcFile)
+
+
+/-- The `ModuleFacetConfig` for the builtin `jFacet`. -/
+def Module.jsFacetConfig : ModuleFacetConfig jsFacet :=
+  mkFacetJobConfig fun mod => do
+    (← mod.leanArts.fetch).bindSync fun _ _ =>
+      -- do content-aware hashing so that we avoid recompiling unchanged JS files
+      return (mod.jsFile, ← fetchFileTrace mod.jsFile)
 
 /--
 Recursively build the module's object file from its C file produced by `lean`
@@ -257,6 +265,7 @@ def Module.oExportFacetConfig : ModuleFacetConfig oExportFacet :=
     match mod.backend with
     | .default | .c => mod.coExport.fetch
     | .llvm => mod.bco.fetch
+    | .js => error "the JS backend only supports exporting Lean symbols"
 
 /-- The `ModuleFacetConfig` for the builtin `oNoExportFacet`. -/
 def Module.oNoExportFacetConfig : ModuleFacetConfig oNoExportFacet :=
@@ -264,6 +273,7 @@ def Module.oNoExportFacetConfig : ModuleFacetConfig oNoExportFacet :=
     match mod.backend with
     | .default | .c => mod.coNoExport.fetch
     | .llvm => error "the LLVM backend only supports exporting Lean symbols"
+    | .js => error "the JS backend only supports exporting Lean symbols"
 
 /-- The `ModuleFacetConfig` for the builtin `oFacet`. -/
 def Module.oFacetConfig : ModuleFacetConfig oFacet :=
@@ -271,6 +281,7 @@ def Module.oFacetConfig : ModuleFacetConfig oFacet :=
     match mod.backend with
     | .default | .c => mod.co.fetch
     | .llvm => mod.bco.fetch
+    | .js => error "the JS backend only supports exporting Lean symbols"
 
 -- TODO: Return `BuildJob OrdModuleSet × OrdPackageSet` or `OrdRBSet Dynlib`
 /-- Recursively build the shared library of a module (e.g., for `--load-dynlib`). -/
@@ -327,6 +338,7 @@ def initModuleFacetConfigs : DNameMap ModuleFacetConfig :=
   |>.insert oleanFacet oleanFacetConfig
   |>.insert ileanFacet ileanFacetConfig
   |>.insert cFacet cFacetConfig
+  |>.insert jsFacet jsFacetConfig
   |>.insert bcFacet bcFacetConfig
   |>.insert coFacet coFacetConfig
   |>.insert coExportFacet coExportFacetConfig

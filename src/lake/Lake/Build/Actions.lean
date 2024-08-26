@@ -18,7 +18,7 @@ namespace Lake
 
 def compileLeanModule
   (leanFile : FilePath)
-  (oleanFile? ileanFile? cFile? bcFile?: Option FilePath)
+  (oleanFile? ileanFile? cFile? jsFile? bcFile?: Option FilePath)
   (leanPath : SearchPath := []) (rootDir : FilePath := ".")
   (dynlibs : Array FilePath := #[]) (dynlibPath : SearchPath := {})
   (leanArgs : Array String := #[]) (lean : FilePath := "lean")
@@ -34,6 +34,9 @@ def compileLeanModule
   if let some cFile := cFile? then
     createParentDirs cFile
     args := args ++ #["-c", cFile.toString]
+  if let some jsFile := jsFile? then
+    createParentDirs jsFile
+    args := args ++ #["--js=" ++ jsFile.toString]
   if let some bcFile := bcFile? then
     createParentDirs bcFile
     args := args ++ #["-b", bcFile.toString]

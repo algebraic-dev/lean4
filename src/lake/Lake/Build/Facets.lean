@@ -97,6 +97,10 @@ module_data c.o.noexport : BuildJob FilePath
 abbrev Module.bcoFacet := `bc.o
 module_data bc.o : BuildJob FilePath
 
+/-- The object file `.bc.o` built from `bc`. -/
+abbrev Module.jsFacet := `js.o
+module_data js.o : BuildJob FilePath
+
 /--
 The object file built from `c`/`bc`.
 On Windows with the C backend, no Lean symbols are exported.

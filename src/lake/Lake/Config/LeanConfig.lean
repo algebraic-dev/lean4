@@ -50,6 +50,10 @@ Compiler backend with which to compile Lean.
 -/
 inductive Backend
   /--
+  Force the JS backend.
+  -/
+  | js
+  /--
   Force the C backend.
   -/
   | c
@@ -68,6 +72,7 @@ instance : Inhabited Backend := ⟨.default⟩
 def Backend.ofString? (s : String) : Option Backend :=
   match s with
   | "c" => some .c
+  | "js" => some .js
   | "llvm" => some .llvm
   | "default" => some .default
   | _ => none
@@ -75,6 +80,7 @@ def Backend.ofString? (s : String) : Option Backend :=
 protected def Backend.toString (bt : Backend) : String :=
   match bt with
   | .c => "c"
+  | .js => "js"
   | .llvm => "llvm"
   | .default => "default"
 

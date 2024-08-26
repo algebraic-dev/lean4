@@ -89,6 +89,9 @@ abbrev pkg (self : Module) : Package :=
 @[inline] def cFile (self : Module) : FilePath :=
   self.irPath "c"
 
+@[inline] def jsFile (self : Module) : FilePath :=
+  self.irPath "js"
+
 @[inline] def coExportFile (self : Module) : FilePath :=
   self.irPath "c.o.export"
 

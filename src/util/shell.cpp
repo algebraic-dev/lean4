@@ -199,6 +199,7 @@ static void display_help(std::ostream & out) {
     std::cout << "  -o, --o=oname          create olean file\n";
     std::cout << "  -i, --i=iname          create ilean file\n";
     std::cout << "  -c, --c=fname          name of the C output file\n";
+    std::cout << "  -k, --k=fname          name of the JS output file\n";
     std::cout << "  -b, --bc=fname         name of the LLVM bitcode file\n";
     std::cout << "      --stdin            take input from stdin\n";
     std::cout << "      --root=dir         set package root directory from which the module name\n"
@@ -253,6 +254,7 @@ static struct option g_long_options[] = {
     {"deps-json",    no_argument,       0, 'J'},
     {"timeout",      optional_argument, 0, 'T'},
     {"c",            optional_argument, 0, 'c'},
+    {"js",           optional_argument, 0, 'k'},
     {"bc",           optional_argument, 0, 'b'},
     {"features",     optional_argument, 0, 'f'},
     {"exitOnPanic",  no_argument,       0, 'e'},
@@ -496,6 +498,7 @@ extern "C" LEAN_EXPORT int lean_main(int argc, char ** argv) {
     optional<std::string> server_in;
     std::string native_output;
     optional<std::string> c_output;
+    optional<std::string> js_output;
     optional<std::string> llvm_output;
     optional<std::string> root_dir;
     buffer<string_ref> forwarded_args;
@@ -507,6 +510,10 @@ extern "C" LEAN_EXPORT int lean_main(int argc, char ** argv) {
         if (c == 0)
             continue; // long-only option
         switch (c) {
+            case 'k':
+                check_optarg("js");
+                js_output = optarg;
+                break;
             case 'e':
                 lean_set_exit_on_panic(true);
                 break;
@@ -752,6 +759,17 @@ extern "C" LEAN_EXPORT int lean_main(int argc, char ** argv) {
             }
             time_task _("C code generation", opts);
             out << lean::ir::emit_c(env, *main_module_name).data();
+            out.close();
+        }
+
+        if (js_output && ok) {
+            std::ofstream out(*js_output, std::ios_base::binary);
+            if (out.fail()) {
+                std::cerr << "failed to create '" << *js_output << "'\n";
+                return 1;
+            }
+            time_task _("JS code generation", opts);
+            out << lean::ir::emit_js(env, *main_module_name).data();
             out.close();
         }
 

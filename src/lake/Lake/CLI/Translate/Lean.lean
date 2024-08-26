@@ -50,6 +50,7 @@ instance : Quote BuildType := ⟨BuildType.quote⟩
 
 protected def Backend.quote : Backend → Term
 | .c => mkCIdent ``c
+| .js => mkCIdent ``js
 | .llvm => mkCIdent ``llvm
 | .default => mkCIdent ``default
 
