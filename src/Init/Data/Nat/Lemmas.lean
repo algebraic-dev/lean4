@@ -651,8 +651,8 @@ theorem sub_mul_mod {x k n : Nat} (h₁ : n*k ≤ x) : (x - n*k) % n = x % n := 
   | .inr npos => Nat.mod_eq_of_lt (mod_lt _ npos)
 
 theorem mul_mod (a b n : Nat) : a * b % n = (a % n) * (b % n) % n := by
-  rw (occs := .pos [1]) [← mod_add_div a n]
-  rw (occs := .pos [1]) [← mod_add_div b n]
+  rw (occs := [1]) [← mod_add_div a n]
+  rw (occs := [1]) [← mod_add_div b n]
   rw [Nat.add_mul, Nat.mul_add, Nat.mul_add,
     Nat.mul_assoc, Nat.mul_assoc, ← Nat.mul_add n, add_mul_mod_self_left,
     Nat.mul_comm _ (n * (b / n)), Nat.mul_assoc, add_mul_mod_self_left]
@@ -1029,3 +1029,12 @@ instance decidableExistsLT [h : DecidablePred p] : DecidablePred fun n => ∃ m 
 instance decidableExistsLE [DecidablePred p] : DecidablePred fun n => ∃ m : Nat, m ≤ n ∧ p m :=
   fun n => decidable_of_iff (∃ m, m < n + 1 ∧ p m)
     (exists_congr fun _ => and_congr_left' Nat.lt_succ_iff)
+
+/-! ### Results about `List.sum` specialized to `Nat` -/
+
+protected theorem sum_pos_iff_exists_pos {l : List Nat} : 0 < l.sum ↔ ∃ x ∈ l, 0 < x := by
+  induction l with
+  | nil => simp
+  | cons x xs ih =>
+    simp [← ih]
+    omega
