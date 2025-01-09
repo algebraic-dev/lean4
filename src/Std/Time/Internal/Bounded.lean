@@ -40,6 +40,10 @@ instance : BEq (Bounded rel n m) where
 instance {x y : Bounded rel a b} : Decidable (x ≤ y) :=
   inferInstanceAs (Decidable (x.val ≤ y.val))
 
+@[always_inline]
+instance {x y : Bounded rel a b} : Decidable (x < y) :=
+  inferInstanceAs (Decidable (x.val < y.val))
+
 /--
 A `Bounded` integer that the relation used is the the less-equal relation so, it includes all
 integers that `lo ≤ val ≤ hi`.

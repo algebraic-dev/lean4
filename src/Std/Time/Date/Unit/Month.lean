@@ -39,6 +39,12 @@ instance {x y : Ordinal} : Decidable (x < y) :=
 def Offset : Type := Int
   deriving Repr, BEq, Inhabited, Add, Sub, Mul, Div, Neg, ToString, LT, LE, DecidableEq
 
+instance { x y : Offset } : Decidable (x ≤ y) :=
+  inferInstanceAs (Decidable (x.val ≤ y.val))
+
+instance { x y : Offset } : Decidable (x < y) :=
+  inferInstanceAs (Decidable (x.val < y.val))
+
 instance : OfNat Offset n :=
   ⟨Int.ofNat n⟩
 
