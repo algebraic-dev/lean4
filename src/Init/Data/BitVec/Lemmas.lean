@@ -785,6 +785,19 @@ theorem extractLsb'_eq_extractLsb {w : Nat} (x : BitVec w) (start len : Nat) (h 
   unfold allOnes
   simp
 
+@[simp] theorem toInt_allOnes : (allOnes w).toInt = if 0 < w then -1 else 0 := by
+  norm_cast
+  by_cases h : w = 0
+  · subst h
+    simp
+  · have : 1 < 2 ^ w := by simp [h]
+    simp [BitVec.toInt]
+    omega
+
+@[simp] theorem toFin_allOnes : (allOnes w).toFin = Fin.ofNat' (2^w) (2^w - 1) := by
+  ext
+  simp
+
 @[simp] theorem getLsbD_allOnes : (allOnes v).getLsbD i = decide (i < v) := by
   simp [allOnes]
 
@@ -1142,11 +1155,16 @@ theorem getMsb_not {x : BitVec w} :
 /-! ### shiftLeft -/
 
 @[simp, bv_toNat] theorem toNat_shiftLeft {x : BitVec v} :
-    BitVec.toNat (x <<< n) = BitVec.toNat x <<< n % 2^v :=
+    (x <<< n).toNat = x.toNat <<< n % 2^v :=
   BitVec.toNat_ofNat _ _
 
+@[simp] theorem toInt_shiftLeft {x : BitVec w} :
+    (x <<< n).toInt = (x.toNat <<< n : Int).bmod (2^w) := by
+  rw [toInt_eq_toNat_bmod, toNat_shiftLeft, Nat.shiftLeft_eq]
+  simp
+
 @[simp] theorem toFin_shiftLeft {n : Nat} (x : BitVec w) :
-    BitVec.toFin (x <<< n) = Fin.ofNat' (2^w) (x.toNat <<< n) := rfl
+    (x <<< n).toFin = Fin.ofNat' (2^w) (x.toNat <<< n) := rfl
 
 @[simp]
 theorem shiftLeft_zero (x : BitVec w) : x <<< 0 = x := by
@@ -2376,6 +2394,54 @@ theorem not_neg (x : BitVec w) : ~~~(-x) = x + -1#w := by
         show (x.toNat - 1) % _ = _ by rw [Nat.mod_eq_of_lt (by omega)],
         show (_ - x.toNat) % _ = _ by rw [Nat.mod_eq_of_lt (by omega)]]
       omega
+
+/-! ### fill -/
+
+@[simp]
+theorem getLsbD_fill {w i : Nat} {v : Bool} :
+    (fill w v).getLsbD i = (v && decide (i < w)) := by
+  by_cases h : v
+  <;> simp [h, BitVec.fill, BitVec.negOne_eq_allOnes]
+
+@[simp]
+theorem getMsbD_fill {w i : Nat} {v : Bool} :
+    (fill w v).getMsbD i = (v && decide (i < w)) := by
+  by_cases h : v
+  <;> simp [h, BitVec.fill, BitVec.negOne_eq_allOnes]
+
+@[simp]
+theorem getElem_fill {w i : Nat} {v : Bool} (h : i < w) :
+    (fill w v)[i] = v := by
+  by_cases h : v
+  <;> simp [h, BitVec.fill, BitVec.negOne_eq_allOnes]
+
+@[simp]
+theorem msb_fill {w : Nat} {v : Bool} :
+    (fill w v).msb = (v && decide (0 < w)) := by
+  simp [BitVec.msb]
+
+theorem fill_eq {w : Nat} {v : Bool} : fill w v = if v = true then allOnes w else 0#w := by
+  by_cases h : v <;> (simp only [h] ; ext ; simp)
+
+@[simp]
+theorem fill_true {w : Nat} : fill w true = allOnes w := by
+  simp [fill_eq]
+
+@[simp]
+theorem fill_false {w : Nat} : fill w false = 0#w := by
+  simp [fill_eq]
+
+@[simp] theorem fill_toNat {w : Nat} {v : Bool} :
+    (fill w v).toNat = if v = true then 2^w - 1 else 0 := by
+  by_cases h : v <;> simp [h]
+
+@[simp] theorem fill_toInt {w : Nat} {v : Bool} :
+    (fill w v).toInt = if v = true && 0 < w then -1 else 0 := by
+  by_cases h : v <;> simp [h]
+
+@[simp] theorem fill_toFin {w : Nat} {v : Bool} :
+    (fill w v).toFin = if v = true then (allOnes w).toFin else Fin.ofNat' (2 ^ w) 0 := by
+  by_cases h : v <;> simp [h]
 
 /-! ### mul -/
 

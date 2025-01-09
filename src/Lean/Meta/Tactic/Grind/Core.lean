@@ -41,8 +41,9 @@ This is an auxiliary function performed while merging equivalence classes.
 private def removeParents (root : Expr) : GoalM ParentSet := do
   let parents ← getParentsAndReset root
   for parent in parents do
-    if (← isCongrRoot parent) then
-      trace[grind.debug.parent] "remove: {parent}"
+    -- Recall that we may have `Expr.forallE` in `parents` because of `ForallProp.lean`
+    if (← pure parent.isApp <&&> isCongrRoot parent) then
+      trace_goal[grind.debug.parent] "remove: {parent}"
       modify fun s => { s with congrTable := s.congrTable.erase { e := parent } }
   return parents
 
@@ -52,8 +53,8 @@ This is an auxiliary function performed while merging equivalence classes.
 -/
 private def reinsertParents (parents : ParentSet) : GoalM Unit := do
   for parent in parents do
-    if (← isCongrRoot parent) then
-      trace[grind.debug.parent] "reinsert: {parent}"
+    if (← pure parent.isApp <&&> isCongrRoot parent) then
+      trace_goal[grind.debug.parent] "reinsert: {parent}"
       addCongrTable parent
 
 /-- Closes the goal when `True` and `False` are in the same equivalence class. -/
@@ -90,9 +91,9 @@ private partial def addEqStep (lhs rhs proof : Expr) (isHEq : Bool) : GoalM Unit
   let rhsNode ← getENode rhs
   if isSameExpr lhsNode.root rhsNode.root then
     -- `lhs` and `rhs` are already in the same equivalence class.
-    trace[grind.debug] "{← ppENodeRef lhs} and {← ppENodeRef rhs} are already in the same equivalence class"
+    trace_goal[grind.debug] "{← ppENodeRef lhs} and {← ppENodeRef rhs} are already in the same equivalence class"
     return ()
-  trace[grind.eqc] "{← if isHEq then mkHEq lhs rhs else mkEq lhs rhs}"
+  trace_goal[grind.eqc] "{← if isHEq then mkHEq lhs rhs else mkEq lhs rhs}"
   let lhsRoot ← getENode lhsNode.root
   let rhsRoot ← getENode rhsNode.root
   let mut valueInconsistency := false
@@ -117,11 +118,11 @@ private partial def addEqStep (lhs rhs proof : Expr) (isHEq : Bool) : GoalM Unit
   unless (← isInconsistent) do
     if valueInconsistency then
       closeGoalWithValuesEq lhsRoot.self rhsRoot.self
-  trace[grind.debug] "after addEqStep, {← ppState}"
+  trace_goal[grind.debug] "after addEqStep, {← ppState}"
   checkInvariants
 where
   go (lhs rhs : Expr) (lhsNode rhsNode lhsRoot rhsRoot : ENode) (flipped : Bool) : GoalM Unit := do
-    trace[grind.debug] "adding {← ppENodeRef lhs} ↦ {← ppENodeRef rhs}"
+    trace_goal[grind.debug] "adding {← ppENodeRef lhs} ↦ {← ppENodeRef rhs}"
     /-
     We have the following `target?/proof?`
     `lhs -> ... -> lhsNode.root`
@@ -138,7 +139,7 @@ where
     }
     let parents ← removeParents lhsRoot.self
     updateRoots lhs rhsNode.root
-    trace[grind.debug] "{← ppENodeRef lhs} new root {← ppENodeRef rhsNode.root}, {← ppENodeRef (← getRoot lhs)}"
+    trace_goal[grind.debug] "{← ppENodeRef lhs} new root {← ppENodeRef rhsNode.root}, {← ppENodeRef (← getRoot lhs)}"
     reinsertParents parents
     setENode lhsNode.root { (← getENode lhsRoot.self) with -- We must retrieve `lhsRoot` since it was updated.
       next := rhsRoot.next
@@ -190,17 +191,24 @@ where
     addEqStep lhs rhs proof isHEq
     processTodo
 
+/-- Adds a new equality `lhs = rhs`. It assumes `lhs` and `rhs` have already been internalized. -/
 def addEq (lhs rhs proof : Expr) : GoalM Unit := do
   addEqCore lhs rhs proof false
 
+
+/-- Adds a new heterogeneous equality `HEq lhs rhs`. It assumes `lhs` and `rhs` have already been internalized. -/
 def addHEq (lhs rhs proof : Expr) : GoalM Unit := do
   addEqCore lhs rhs proof true
 
-/--
-Adds a new `fact` justified by the given proof and using the given generation.
--/
+/-- Internalizes `lhs` and `rhs`, and then adds equality `lhs = rhs`. -/
+def addNewEq (lhs rhs proof : Expr) (generation : Nat) : GoalM Unit := do
+  internalize lhs generation
+  internalize rhs generation
+  addEq lhs rhs proof
+
+/-- Adds a new `fact` justified by the given proof and using the given generation. -/
 def add (fact : Expr) (proof : Expr) (generation := 0) : GoalM Unit := do
-  trace[grind.assert] "{fact}"
+  trace_goal[grind.assert] "{fact}"
   if (← isInconsistent) then return ()
   resetNewEqs
   let_expr Not p := fact

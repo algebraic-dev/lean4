@@ -1,6 +1,4 @@
-grind_pattern Array.size_set => Array.set a i v h
-grind_pattern Array.get_set_eq  => a.set i v h
-grind_pattern Array.get_set_ne => (a.set i v hi)[j]
+attribute [grind =] Array.size_set Array.get_set_eq Array.get_set_ne
 
 set_option grind.debug true
 set_option trace.grind.ematch.pattern true
@@ -57,8 +55,7 @@ example (as bs cs ds : Array α) (v₁ v₂ v₃ : α)
   grind
 
 opaque f (a b : α) : α := a
-theorem fx : f x (f x x) = x := sorry
-grind_pattern fx => f x (f x x)
+@[grind =] theorem fx : f x (f x x) = x := sorry
 
 /--
 info: [grind.ematch.instance] fx: f a (f a a) = a
@@ -66,3 +63,30 @@ info: [grind.ematch.instance] fx: f a (f a a) = a
 #guard_msgs (info) in
 example : a = b₁ → c = f b₁ b₂ → f a c ≠ a → a = b₂ → False := by
   grind
+
+
+namespace pattern_normalization
+opaque g : Nat → Nat
+@[grind_norm] theorem gthm : g x = x := sorry
+opaque f : Nat → Nat → Nat
+theorem fthm : f (g x) x = x := sorry
+-- The following pattern should be normalized by `grind`. Otherwise, we will not find any instance during E-matching.
+/--
+info: [grind.ematch.pattern] fthm: [f #0 #0]
+-/
+#guard_msgs (info) in
+grind_pattern fthm => f (g x) x
+
+/--
+info: [grind.assert] f x y = b
+[grind.assert] y = x
+[grind.assert] ¬b = x
+[grind.ematch.instance] fthm: f (g y) y = y
+[grind.assert] f y y = y
+-/
+#guard_msgs (info) in
+set_option trace.grind.assert true in
+example : f (g x) y = b → y = x → b = x := by
+  grind
+
+end pattern_normalization

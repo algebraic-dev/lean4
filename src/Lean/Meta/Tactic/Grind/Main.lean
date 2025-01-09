@@ -14,6 +14,8 @@ import Lean.Meta.Tactic.Grind.Util
 import Lean.Meta.Tactic.Grind.Inv
 import Lean.Meta.Tactic.Grind.Intro
 import Lean.Meta.Tactic.Grind.EMatch
+import Lean.Meta.Tactic.Grind.Split
+import Lean.Meta.Tactic.Grind.SimpUtil
 
 namespace Lean.Meta.Grind
 
@@ -22,12 +24,13 @@ def mkMethods (fallback : Fallback) : CoreM Methods := do
   return {
     fallback
     propagateUp := fun e => do
-     propagateForallProp e
+     propagateForallPropUp e
      let .const declName _ := e.getAppFn | return ()
      propagateProjEq e
      if let some prop := builtinPropagators.up[declName]? then
        prop e
     propagateDown := fun e => do
+     propagateForallPropDown e
      let .const declName _ := e.getAppFn | return ()
      if let some prop := builtinPropagators.down[declName]? then
        prop e
@@ -37,12 +40,8 @@ def GrindM.run (x : GrindM α) (mainDeclName : Name) (config : Grind.Config) (fa
   let scState := ShareCommon.State.mk _
   let (falseExpr, scState) := ShareCommon.State.shareCommon scState (mkConst ``False)
   let (trueExpr, scState)  := ShareCommon.State.shareCommon scState (mkConst ``True)
-  let thms ← grindNormExt.getTheorems
-  let simprocs := #[(← grindNormSimprocExt.getSimprocs)]
-  let simp ← Simp.mkContext
-    (config := { arith := true })
-    (simpTheorems := #[thms])
-    (congrTheorems := (← getSimpCongrTheorems))
+  let simprocs ← Grind.getSimprocs
+  let simp ← Grind.getSimpContext
   x (← mkMethods fallback).toMethodsRef { mainDeclName, config, simprocs, simp } |>.run' { scState, trueExpr, falseExpr }
 
 private def mkGoal (mvarId : MVarId) : GrindM Goal := do
@@ -61,6 +60,7 @@ private def initCore (mvarId : MVarId) : GrindM (List Goal) := do
   let mvarId ← mvarId.revertAll
   let mvarId ← mvarId.unfoldReducible
   let mvarId ← mvarId.betaReduce
+  appendTagSuffix mvarId `grind
   let goals ← intros (← mkGoal mvarId) (generation := 0)
   goals.forM (·.checkInvariants (expensive := true))
   return goals.filter fun goal => !goal.inconsistent
@@ -70,7 +70,7 @@ def all (goals : List Goal) (f : Goal → GrindM (List Goal)) : GrindM (List Goa
 
 /-- A very simple strategy -/
 private def simple (goals : List Goal) : GrindM (List Goal) := do
-  all goals ematchStar
+  applyToAll (assertAll >> ematchStar >> (splitNext >> assertAll >> ematchStar).iterate) goals
 
 def main (mvarId : MVarId) (config : Grind.Config) (mainDeclName : Name) (fallback : Fallback) : MetaM (List MVarId) := do
   let go : GrindM (List MVarId) := do

@@ -99,6 +99,8 @@ builtin_grind_propagator propagateNotUp ↑Not := fun e => do
   else if (← isEqTrue a) then
     -- a = True → (Not a) = False
     pushEqFalse e <| mkApp2 (mkConst ``Lean.Grind.not_eq_of_eq_true) a (← mkEqTrueProof a)
+  else if (← isEqv e a) then
+    closeGoal <| mkApp2 (mkConst ``Lean.Grind.false_of_not_eq_self) a (← mkEqProof e a)
 
 /--
 Propagates truth values downwards for a negation expression `Not a` based on the truth value of `Not a`.
@@ -130,6 +132,13 @@ builtin_grind_propagator propagateEqUp ↑Eq := fun e => do
 builtin_grind_propagator propagateEqDown ↓Eq := fun e => do
   if (← isEqTrue e) then
     let_expr Eq _ a b := e | return ()
+    pushEq a b <| mkApp2 (mkConst ``of_eq_true) e (← mkEqTrueProof e)
+
+/-- Propagates `EqMatch` downwards -/
+builtin_grind_propagator propagateEqMatchDown ↓Grind.EqMatch := fun e => do
+  if (← isEqTrue e) then
+    let_expr Grind.EqMatch _ a b origin := e | return ()
+    markCaseSplitAsResolved origin
     pushEq a b <| mkApp2 (mkConst ``of_eq_true) e (← mkEqTrueProof e)
 
 /-- Propagates `HEq` downwards -/

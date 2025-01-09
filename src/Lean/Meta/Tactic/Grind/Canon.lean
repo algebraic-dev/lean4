@@ -22,7 +22,7 @@ to detect when two structurally different atoms are definitionally equal.
 The `grind` tactic, on the other hand, uses congruence closure. Moreover, types, type formers, proofs, and instances
 are considered supporting elements and are not factored into congruence detection.
 
-This module minimizes the number of `isDefEq` checks by comparing two terms `a` and `b` only if they instances,
+This module minimizes the number of `isDefEq` checks by comparing two terms `a` and `b` only if they are instances,
 types, or type formers and are the `i`-th arguments of two different `f`-applications. This approach is
 sufficient for the congruence closure procedure used by the `grind` tactic.
 
@@ -111,22 +111,13 @@ unsafe def canonImpl (e : Expr) : StateT State MetaM Expr := do
   visit e |>.run' mkPtrMap
 where
   visit (e : Expr) : StateRefT (PtrMap Expr Expr) (StateT State MetaM) Expr := do
-    match e with
-    | .bvar .. => unreachable!
-    -- Recall that `grind` treats `let`, `forall`, and `lambda` as atomic terms.
-    | .letE .. | .forallE .. | .lam ..
-    | .const .. | .lit .. | .mvar .. | .sort .. | .fvar ..
-    -- Recall that the `grind` preprocessor uses the `foldProjs` preprocessing step.
-    | .proj ..
-    -- Recall that the `grind` preprocessor uses the `eraseIrrelevantMData` preprocessing step.
-    | .mdata ..  => return e
-    -- We only visit applications
-    | .app .. =>
-      -- Check whether it is cached
-      if let some r := (← get).find? e then
-        return r
-      e.withApp fun f args => do
-        let e' ← if f.isConstOf ``Lean.Grind.nestedProof && args.size == 2 then
+    unless e.isApp || e.isForall do return e
+    -- Check whether it is cached
+    if let some r := (← get).find? e then
+      return r
+    let e' ← match e with
+      | .app .. => e.withApp fun f args => do
+        if f.isConstOf ``Lean.Grind.nestedProof && args.size == 2 then
           let prop := args[0]!
           let prop' ← visit prop
           if let some r := (← getThe State).proofCanon.find? prop' then
@@ -138,23 +129,28 @@ where
         else
           let pinfos := (← getFunInfo f).paramInfo
           let mut modified := false
-          let mut args := args
-          for i in [:args.size] do
-            let arg := args[i]!
+          let mut args := args.toVector
+          for h : i in [:args.size] do
+            let arg := args[i]
             let arg' ← match (← shouldCanon pinfos i arg) with
             | .canonType  => canonType f i arg
             | .canonInst  => canonInst f i arg
             | .visit      => visit arg
             unless ptrEq arg arg' do
-              args := args.set! i arg'
+              args := args.set i arg'
               modified := true
-          pure <| if modified then mkAppN f args else e
-        modify fun s => s.insert e e'
-        return e'
+          pure <| if modified then mkAppN f args.toArray else e
+      | .forallE _ d b _ =>
+        -- Recall that we have `ForallProp.lean`.
+        let d' ← visit d
+        -- Remark: users may not want to convert `p → q` into `¬p ∨ q`
+        let b' ← if b.hasLooseBVars then pure b else visit b
+        pure <| e.updateForallE! d' b'
+      | _ => unreachable!
+    modify fun s => s.insert e e'
+    return e'
 
-/--
-Canonicalizes nested types, type formers, and instances in `e`.
--/
+/-- Canonicalizes nested types, type formers, and instances in `e`. -/
 def canon (e : Expr) : StateT State MetaM Expr :=
   unsafe canonImpl e
 

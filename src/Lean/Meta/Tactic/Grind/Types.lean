@@ -29,7 +29,7 @@ def congrPlaceholderProof := mkConst (Name.mkSimple "[congruence]")
 
 /--
 Returns `true` if `e` is `True`, `False`, or a literal value.
-See `LitValues` for supported literals.
+See `Lean.Meta.LitValues` for supported literals.
 -/
 def isInterpreted (e : Expr) : MetaM Bool := do
   if e.isTrue || e.isFalse then return true
@@ -59,16 +59,16 @@ structure CongrTheoremCacheKey where
   f       : Expr
   numArgs : Nat
 
--- We manually define `BEq` because we wannt to use pointer equality.
+-- We manually define `BEq` because we want to use pointer equality.
 instance : BEq CongrTheoremCacheKey where
   beq a b := isSameExpr a.f b.f && a.numArgs == b.numArgs
 
--- We manually define `Hashable` because we wannt to use pointer equality.
+-- We manually define `Hashable` because we want to use pointer equality.
 instance : Hashable CongrTheoremCacheKey where
   hash a := mixHash (unsafe ptrAddrUnsafe a.f).toUInt64 (hash a.numArgs)
 
 /-- State for the `GrindM` monad. -/
-structure CoreState where
+structure State where
   canon      : Canon.State := {}
   /-- `ShareCommon` (aka `Hashconsing`) state. -/
   scState    : ShareCommon.State.{0} ShareCommon.objectFactory := ShareCommon.State.mk _
@@ -83,12 +83,17 @@ structure CoreState where
   simpStats  : Simp.Stats := {}
   trueExpr   : Expr
   falseExpr  : Expr
+  /--
+  Used to generate trace messages of the for `[grind] working on <tag>`,
+  and implement the macro `trace_goal`.
+  -/
+  lastTag    : Name := .anonymous
 
 private opaque MethodsRefPointed : NonemptyType.{0}
 private def MethodsRef : Type := MethodsRefPointed.type
 instance : Nonempty MethodsRef := MethodsRefPointed.property
 
-abbrev GrindM := ReaderT MethodsRef $ ReaderT Context $ StateRefT CoreState MetaM
+abbrev GrindM := ReaderT MethodsRef $ ReaderT Context $ StateRefT State MetaM
 
 /-- Returns the user-defined configuration options -/
 def getConfig : GrindM Grind.Config :=
@@ -123,12 +128,12 @@ def abstractNestedProofs (e : Expr) : GrindM Expr := do
 
 /--
 Applies hash-consing to `e`. Recall that all expressions in a `grind` goal have
-been hash-consing. We perform this step before we internalize expressions.
+been hash-consed. We perform this step before we internalize expressions.
 -/
 def shareCommon (e : Expr) : GrindM Expr := do
-  modifyGet fun { canon, scState, nextThmIdx, congrThms, trueExpr, falseExpr, simpStats } =>
+  modifyGet fun { canon, scState, nextThmIdx, congrThms, trueExpr, falseExpr, simpStats, lastTag } =>
     let (e, scState) := ShareCommon.State.shareCommon scState e
-    (e, { canon, scState, nextThmIdx, congrThms, trueExpr, falseExpr, simpStats })
+    (e, { canon, scState, nextThmIdx, congrThms, trueExpr, falseExpr, simpStats, lastTag })
 
 /--
 Canonicalizes nested types, type formers, and instances in `e`.
@@ -193,7 +198,7 @@ structure ENode where
   interpreted : Bool := false
   /-- `ctor := true` if the head symbol is a constructor application. -/
   ctor : Bool := false
-  /-- `hasLambdas := true` if equivalence class contains lambda expressions. -/
+  /-- `hasLambdas := true` if the equivalence class contains lambda expressions. -/
   hasLambdas : Bool := false
   /--
   If `heqProofs := true`, then some proofs in the equivalence class are based
@@ -207,7 +212,6 @@ structure ENode where
   generation : Nat := 0
   /-- Modification time -/
   mt : Nat := 0
-  -- TODO: see Lean 3 implementation
   deriving Inhabited, Repr
 
 def ENode.isCongrRoot (n : ENode) :=
@@ -375,10 +379,22 @@ structure Goal where
   thmMap       : EMatchTheorems
   /-- Number of theorem instances generated so far -/
   numInstances : Nat := 0
+  /-- Number of E-matching rounds performed in this goal since the last case-split. -/
+  numEmatch    : Nat := 0
   /-- (pre-)instances found so far. It includes instances that failed to be instantiated. -/
   preInstances : PreInstanceSet := {}
   /-- new facts to be processed. -/
   newFacts     : Std.Queue NewFact := ∅
+  /-- `match` auxiliary functions whose equations have already been created and activated. -/
+  matchEqNames : PHashSet Name := {}
+  /-- Case-split candidates. -/
+  splitCandidates : List Expr := []
+  /-- Number of splits performed to get to this goal. -/
+  numSplits : Nat := 0
+  /-- Case-splits that do not have to be performed anymore. -/
+  resolvedSplits : PHashSet ENodeKey := {}
+  /-- Next local E-match theorem idx. -/
+  nextThmIdx : Nat := 0
   deriving Inhabited
 
 def Goal.admit (goal : Goal) : MetaM Unit :=
@@ -391,6 +407,25 @@ abbrev GoalM := StateRefT Goal GrindM
 
 @[inline] def GoalM.run' (goal : Goal) (x : GoalM Unit) : GrindM Goal :=
   goal.mvarId.withContext do StateRefT'.run' (x *> get) goal
+
+def updateLastTag : GoalM Unit := do
+  if (← isTracingEnabledFor `grind) then
+    let currTag ← (← get).mvarId.getTag
+    if currTag != (← getThe Grind.State).lastTag then
+      trace[grind] "working on goal `{currTag}`"
+      modifyThe Grind.State fun s => { s with lastTag := currTag }
+
+/--
+Macro similar to `trace[...]`, but it includes the trace message `trace[grind] "working on <current goal>"`
+if the tag has changed since the last trace message.
+-/
+macro "trace_goal[" id:ident "]" s:(interpolatedStr(term) <|> term) : doElem => do
+  let msg ← if s.raw.getKind == interpolatedStrKind then `(m! $(⟨s⟩)) else `(($(⟨s⟩) : MessageData))
+  `(doElem| do
+    let cls := $(quote id.getId.eraseMacroScopes)
+    if (← Lean.isTracingEnabledFor cls) then
+      updateLastTag
+      Lean.addTrace cls $msg)
 
 /--
 A helper function used to mark a theorem instance found by the E-matching module.
@@ -415,6 +450,14 @@ def addTheoremInstance (proof : Expr) (prop : Expr) (generation : Nat) : GoalM U
 /-- Returns `true` if the maximum number of instances has been reached. -/
 def checkMaxInstancesExceeded : GoalM Bool := do
   return (← get).numInstances >= (← getConfig).instances
+
+/-- Returns `true` if the maximum number of case-splits has been reached. -/
+def checkMaxCaseSplit : GoalM Bool := do
+  return (← get).numSplits >= (← getConfig).splits
+
+/-- Returns `true` if the maximum number of E-matching rounds has been reached. -/
+def checkMaxEmatchExceeded : GoalM Bool := do
+  return (← get).numEmatch >= (← getConfig).ematch
 
 /--
 Returns `some n` if `e` has already been "internalized" into the
@@ -635,7 +678,9 @@ def mkEqFalseProof (a : Expr) : GoalM Expr := do
 
 /-- Marks current goal as inconsistent without assigning `mvarId`. -/
 def markAsInconsistent : GoalM Unit := do
-  modify fun s => { s with inconsistent := true }
+  unless (← get).inconsistent do
+    trace[grind] "closed `{← (← get).mvarId.getTag}`"
+    modify fun s => { s with inconsistent := true }
 
 /--
 Closes the current goal using the given proof of `False` and
@@ -723,5 +768,18 @@ partial def getEqcs : GoalM (List (List Expr)) := do
     if isSameExpr node.root node.self then
       r := (← getEqc node.self) :: r
   return r
+
+/-- Returns `true` if `e` is a case-split that does not need to be performed anymore. -/
+def isResolvedCaseSplit (e : Expr) : GoalM Bool :=
+  return (← get).resolvedSplits.contains { expr := e }
+
+/--
+Mark `e` as a case-split that does not need to be performed anymore.
+Remark: we currently use this feature to disable `match`-case-splits
+-/
+def markCaseSplitAsResolved (e : Expr) : GoalM Unit := do
+  unless (← isResolvedCaseSplit e) do
+    trace_goal[grind.split.resolved] "{e}"
+    modify fun s => { s with resolvedSplits := s.resolvedSplits.insert { expr := e } }
 
 end Lean.Meta.Grind
