@@ -7,12 +7,12 @@ Author: Leonardo de Moura
 #pragma once
 
 namespace lean {
-void initialize();
+void initialize(int argc, char ** argv);
 void finalize();
 /** \brief Helper object for initializing Lean */
 class initializer {
 public:
-    initializer();
+    initializer(int argc, char ** argv);
     ~initializer();
 };
 }

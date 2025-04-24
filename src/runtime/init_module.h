@@ -8,6 +8,6 @@ Author: Leonardo de Moura
 #include <lean/lean.h>
 
 namespace lean {
-LEAN_EXPORT void initialize_runtime_module();
+LEAN_EXPORT void initialize_runtime_module(int argc, char ** argv);
 LEAN_EXPORT void finalize_runtime_module();
 }

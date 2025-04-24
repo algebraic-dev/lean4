@@ -16,7 +16,7 @@ Author: Leonardo de Moura
 #include "runtime/libuv.h"
 
 namespace lean {
-extern "C" LEAN_EXPORT void lean_initialize_runtime_module() {
+extern "C" LEAN_EXPORT void lean_initialize_runtime_module(int argc, char ** argv) {
     initialize_alloc();
     initialize_debug();
     initialize_object();
@@ -25,10 +25,10 @@ extern "C" LEAN_EXPORT void lean_initialize_runtime_module() {
     initialize_mutex();
     initialize_process();
     initialize_stack_overflow();
-    initialize_libuv();
+    initialize_libuv(argc, argv);
 }
-void initialize_runtime_module() {
-    lean_initialize_runtime_module();
+void initialize_runtime_module(int argc, char ** argv) {
+    lean_initialize_runtime_module(argc, argv);
 }
 void finalize_runtime_module() {
     finalize_stack_overflow();

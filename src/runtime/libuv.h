@@ -23,7 +23,7 @@ namespace lean {
 #include <uv.h>
 #endif
 
-extern "C" void initialize_libuv();
+extern "C" void initialize_libuv(int argc, char ** argv);
 
 // =======================================
 // General LibUV functions.

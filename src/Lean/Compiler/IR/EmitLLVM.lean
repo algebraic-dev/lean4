@@ -1366,21 +1366,27 @@ def emitInitFn (mod : LLVM.Module llvmctx) (builder : LLVM.Builder llvmctx) : M 
   let out ← callLeanIOResultMKOk builder box0 "retval"
   let _ ← LLVM.buildRet builder out
 
-def callLeanInitialize (builder : LLVM.Builder llvmctx) : M llvmctx Unit := do
+def callLeanInitialize (builder : LLVM.Builder llvmctx) (argc argv : LLVM.Value llvmctx) : M llvmctx Unit := do
   let fnName :=  "lean_initialize"
-  let retty ← LLVM.voidType llvmctx
-  let argtys := #[]
-  let fnty ← LLVM.functionType retty argtys
-  let fn ← getOrCreateFunctionPrototype (← getLLVMModule) retty fnName argtys
-  let _ ← LLVM.buildCall2 builder fnty fn #[]
 
-def callLeanInitializeRuntimeModule (builder : LLVM.Builder llvmctx) : M llvmctx Unit := do
+  let intTy ← LLVM.intTypeInContext llvmctx 32
+  let charPtrPtrTy ← LLVM.pointerType (← LLVM.pointerType (← LLVM.intTypeInContext llvmctx 8))
+  let argtys := #[intTy, charPtrPtrTy]
+  let fnty ← LLVM.functionType intTy argtys
+
+  let fn ← getOrCreateFunctionPrototype (← getLLVMModule) intTy fnName argtys
+  let _ ← LLVM.buildCall2 builder fnty fn #[argc, argv]
+
+def callLeanInitializeRuntimeModule (builder : LLVM.Builder llvmctx) (argc argv : LLVM.Value llvmctx) : M llvmctx Unit := do
   let fnName :=  "lean_initialize_runtime_module"
-  let retty ← LLVM.voidType llvmctx
-  let argtys := #[]
-  let fnty ← LLVM.functionType retty argtys
-  let fn ← getOrCreateFunctionPrototype (← getLLVMModule) retty fnName argtys
-  let _ ← LLVM.buildCall2 builder fnty fn #[]
+
+  let intTy ← LLVM.intTypeInContext llvmctx 32
+  let charPtrPtrTy ← LLVM.pointerType (← LLVM.pointerType (← LLVM.intTypeInContext llvmctx 8))
+  let argtys := #[intTy, charPtrPtrTy]
+  let fnty ← LLVM.functionType intTy argtys
+
+  let fn ← getOrCreateFunctionPrototype (← getLLVMModule) intTy fnName argtys
+  let _ ← LLVM.buildCall2 builder fnty fn #[argc, argv]
 
 def callLeanSetPanicMessages (builder : LLVM.Builder llvmctx)
     (enable? : LLVM.Value llvmctx) : M llvmctx Unit := do
@@ -1479,7 +1485,11 @@ def emitMainFn (mod : LLVM.Module llvmctx) (builder : LLVM.Builder llvmctx) : M 
   let inslot ← buildPrologueAlloca builder (← LLVM.pointerType inty) "in"
   let resty ← LLVM.voidPtrType llvmctx
   let res ← buildPrologueAlloca builder (← LLVM.pointerType resty) "res"
-  if usesLeanAPI then callLeanInitialize builder else callLeanInitializeRuntimeModule builder
+
+  let argcval ← LLVM.getParam main 0
+  let argvval ← LLVM.getParam main 1
+
+  if usesLeanAPI then callLeanInitialize builder argcval argvval else callLeanInitializeRuntimeModule builder argcval argvval
     /- We disable panic messages because they do not mesh well with extracted closed terms.
         See issue #534. We can remove this workaround after we implement issue #467. -/
   callLeanSetPanicMessages builder (← LLVM.constFalse llvmctx)

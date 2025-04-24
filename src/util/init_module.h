@@ -8,6 +8,6 @@ Author: Leonardo de Moura
 #include "runtime/object.h"
 
 namespace lean {
-LEAN_EXPORT void initialize_util_module();
+LEAN_EXPORT void initialize_util_module(int argc, char ** argv);
 LEAN_EXPORT void finalize_util_module();
 }

@@ -13,7 +13,9 @@ namespace lean {
 #ifndef LEAN_EMSCRIPTEN
 #include <uv.h>
 
-extern "C" void initialize_libuv() {
+extern "C" void initialize_libuv(int argc, char ** argv) {
+    uv_setup_args(argc, argv);
+
     initialize_libuv_timer();
     initialize_libuv_tcp_socket();
     initialize_libuv_udp_socket();

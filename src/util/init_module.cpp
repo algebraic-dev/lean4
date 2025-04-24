@@ -12,8 +12,8 @@ Author: Leonardo de Moura
 #include "util/options.h"
 
 namespace lean {
-void initialize_util_module() {
-    initialize_runtime_module();
+void initialize_util_module(int argc, char ** argv) {
+    initialize_runtime_module(argc, argv);
     initialize_ascii();
     initialize_name();
     initialize_name_generator();

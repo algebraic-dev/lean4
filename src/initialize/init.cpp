@@ -24,9 +24,9 @@ extern "C" object* initialize_Lean(uint8_t, object* w);
 /* Initializes the Lean runtime. Before executing any code which uses the Lean package,
 you must first call this function, and then `lean::io_mark_end_initialization`. In between
 these two calls, you may also have to run additional initializers for your own modules. */
-extern "C" LEAN_EXPORT void lean_initialize() {
+extern "C" LEAN_EXPORT void lean_initialize(int argc, char ** argv) {
     save_stack_info();
-    initialize_util_module();
+    initialize_util_module(argc, argv);
     uint8_t builtin = 1;
     // Initializing the core libs explicitly is necessary because of references to them other than
     // via `import`, such as:
@@ -56,8 +56,8 @@ void finalize() {
     delete_thread_finalizer_manager();
 }
 
-initializer::initializer() {
-    lean_initialize();
+initializer::initializer(int argc, char ** argv) {
+    lean_initialize(argc, argv);
     /* Remark: We used to call `lean::io_mark_end_initialization` here, however this prevented
     plugins from setting up global state such as environment extensions in their initializers.
     See also `lean_initialize`. */

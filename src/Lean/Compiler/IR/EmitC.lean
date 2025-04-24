@@ -144,9 +144,9 @@ def emitMainFn : M Unit := do
     let env ← getEnv
     let usesLeanAPI := usesModuleFrom env `Lean
     if usesLeanAPI then
-       emitLn "void lean_initialize();"
+       emitLn "void lean_initialize(int argc, char ** argv);"
     else
-       emitLn "void lean_initialize_runtime_module();";
+       emitLn "void lean_initialize_runtime_module(int argc, char ** argv);";
     emitLn "
   #if defined(WIN32) || defined(_WIN32)
   #include <windows.h>
@@ -159,9 +159,9 @@ def emitMainFn : M Unit := do
   #endif
   lean_object* in; lean_object* res;";
     if usesLeanAPI then
-      emitLn "lean_initialize();"
+      emitLn "lean_initialize(argc, argv);"
     else
-      emitLn "lean_initialize_runtime_module();"
+      emitLn "lean_initialize_runtime_module(argc, argv);"
     let modName ← getModName
     /- We disable panic messages because they do not mesh well with extracted closed terms.
        See issue #534. We can remove this workaround after we implement issue #467. -/

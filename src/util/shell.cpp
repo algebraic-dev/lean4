@@ -482,7 +482,7 @@ extern "C" LEAN_EXPORT int lean_main(int argc, char ** argv) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
     auto init_start = std::chrono::steady_clock::now();
-    lean::initializer init;
+    lean::initializer init(argc, argv);
     second_duration init_time = std::chrono::steady_clock::now() - init_start;
     bool run = false;
     optional<std::string> olean_fn;
