@@ -40,4 +40,9 @@ void finalize_runtime_module() {
     finalize_debug();
     finalize_alloc();
 }
+
+extern "C" LEAN_EXPORT void lean_finalize_runtime_module() {
+    finalize_runtime_module();
+}
+
 }
