@@ -14,6 +14,7 @@ Author: Leonardo de Moura
 #include "runtime/mutex.h"
 #include "runtime/init_module.h"
 #include "runtime/libuv.h"
+#include "runtime/idn2.h"
 
 namespace lean {
 extern "C" LEAN_EXPORT void lean_initialize_runtime_module() {

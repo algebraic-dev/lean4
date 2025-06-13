@@ -7,6 +7,7 @@ prelude
 import Std.Internal.Async
 import Std.Internal.Parsec
 import Std.Internal.UV
+import Std.Internal.IDN2
 
 /-!
 This directory is used for components of the standard library that are either considered
