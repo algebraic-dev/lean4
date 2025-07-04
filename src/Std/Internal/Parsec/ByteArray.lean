@@ -30,10 +30,10 @@ abbrev Parser (e : Type := String) (α : Type) : Type := Parsec ByteArray.Iterat
 /--
 Run a `Parser` on a `ByteArray`, returns either the result or an error string with offset.
 -/
-protected def Parser.run (p : Parser e α) (arr : ByteArray) : Except (Error e) α :=
+protected def Parser.run [ToString e] (p : Parser e α) (arr : ByteArray) : Except String α :=
   match p arr.iter with
   | .success _ res => Except.ok res
-  | .error _ err => Except.error err
+  | .error i err => Except.error s!"offset {i.idx}: {toString err}"
 
 /--
 Parse a single byte equal to `b`, fails if different.

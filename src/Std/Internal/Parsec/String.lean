@@ -27,10 +27,10 @@ abbrev Parser (e : Type := String) (α : Type) : Type := Parsec String.Iterator 
 /--
 Run a `Parser` on a `String`, returns either the result or an error string with offset.
 -/
-protected def Parser.run (p : Parser e α) (s : String) : Except (Error e) α :=
+protected def Parser.run [ToString e] (p : Parser e α) (s : String) : Except String α :=
   match p s.mkIterator with
   | .success _ res => Except.ok res
-  | .error _ err => Except.error err
+  | .error i err => Except.error s!"offset {i.i}: {toString err}"
 
 /--
 Parses the given string.

@@ -25,7 +25,7 @@ inductive Error (e : Type) where
   | notFollowedBy
   | expected (e : String)
   | other (α : e)
-  deriving Repr
+deriving Repr
 
 instance : Coe e (Error e) where
   coe := .other
