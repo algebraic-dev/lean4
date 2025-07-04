@@ -77,7 +77,7 @@ def CodeInfo.parse (s : String) : Except String CodeInfo :=
   infoString.run s |>.mapError (fun e => s!"Invalid code block info string `{s}`: {e}")
 where
   /-- Parses the contents of a string literal up to, but excluding, the closing quotation mark. -/
-  stringContents : Parser String := attempt do
+  stringContents : Parser String String := attempt do
     let escaped := pchar '\\' *> pchar '"'
     let cs ← many (notFollowedBy (pchar '"') *> (escaped <|> any))
     return String.mk cs.toList
@@ -86,7 +86,7 @@ where
   Parses all input up to the next whitespace. If `nonempty` is `true`, fails if there is no input
   prior to the next whitespace.
   -/
-  upToWs (nonempty : Bool) : Parser String := fun it =>
+  upToWs (nonempty : Bool) : Parser String String := fun it =>
     let it' := it.find fun c => c.isWhitespace
     if nonempty && it'.pos == it.pos then
       .error it' (.other "Expected a nonempty string")
@@ -94,7 +94,7 @@ where
       .success it' (it.extract it')
 
   /-- Parses a named attribute, and returns its name and value. -/
-  namedAttr : Parser (String × String) := attempt do
+  namedAttr : Parser String (String × String) := attempt do
     let name ← skipChar '(' *> ws *> (upToWs true)
     let contents ← ws *> skipString ":=" *> ws *> skipChar '"' *> stringContents
     discard <| skipChar '"' *> ws *> skipChar ')'
@@ -104,10 +104,10 @@ where
   Parses an "attribute" in an info string, either a space-delineated identifier or a named
   attribute of the form `(name := "value")`.
   -/
-  attr : Parser (String ⊕ String × String) :=
+  attr : Parser String (String ⊕ String × String) :=
     .inr <$> namedAttr <|> .inl <$> (upToWs true)
 
-  infoString : Parser CodeInfo := do
+  infoString : Parser String CodeInfo := do
     let lang ← upToWs false
     let attrs ← many (attempt <| ws *> attr)
     let mut kind? := Option.none
@@ -171,7 +171,7 @@ private instance : Input ValidationState String Nat where
   next' := fun s _ => { s with idx := s.idx + 1 }
   curr' := fun s _ => s.get
 
-private abbrev ValidationM := Parsec ValidationState
+private abbrev ValidationM := Parsec ValidationState String
 
 private def ValidationM.run (p : ValidationM α) (input : String) : Except (Nat × String) α :=
   match p (.ofSource input) with
@@ -183,8 +183,9 @@ Matches `p` as many times as possible, followed by EOF. If `p` cannot be matched
 of the input, rethrows the corresponding error.
 -/
 private partial def manyThenEOF (p : ValidationM α) : ValidationM Unit := fun s =>
-  match eof s with
-  | .success .. => .success s ()
+  match eof (e := String) s with
+  | .success .. =>
+    .success s ()
   | .error .. =>
     match p s with
     | .success s' _ => manyThenEOF p s'

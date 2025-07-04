@@ -192,21 +192,21 @@ private def toInt64 (bs : ByteArray) : Int64 :=
     then Int.ofNat n
     else Int.negOfNat (UInt64.size - n)
 
-private def manyN (n : Nat) (p : Parser α) : Parser (Array α) := do
+private def manyN (n : Nat) (p : Parser String α) : Parser String (Array α) := do
   let mut result := #[]
   for _ in [0:n] do
     let x ← p
     result := result.push x
   return result
 
-private def pu64 : Parser UInt64 := ByteArray.toUInt64LE! <$> take 8
-private def pi64 : Parser Int64 := toInt64 <$> take 8
-private def pu32 : Parser UInt32 := toUInt32 <$> take 4
-private def pi32 : Parser Int32 := toInt32 <$> take 4
-private def pu8 : Parser UInt8 := any
-private def pbool : Parser Bool := (· != 0) <$> pu8
+private def pu64 : Parser String UInt64 := ByteArray.toUInt64LE! <$> take 8
+private def pi64 : Parser String Int64 := toInt64 <$> take 8
+private def pu32 : Parser String UInt32 := toUInt32 <$> take 4
+private def pi32 : Parser String Int32 := toInt32 <$> take 4
+private def pu8 : Parser String UInt8 := any
+private def pbool : Parser String Bool := (· != 0) <$> pu8
 
-private def parseHeader : Parser Header :=
+private def parseHeader : Parser String Header :=
   Header.mk
     <$> (pstring "TZif" *> pu8)
     <*> (take 15 *> pu32)
@@ -216,27 +216,27 @@ private def parseHeader : Parser Header :=
     <*> pu32
     <*> pu32
 
-private def parseLocalTimeType : Parser LocalTimeType :=
+private def parseLocalTimeType : Parser String LocalTimeType :=
   LocalTimeType.mk
     <$> pi32
     <*> pbool
     <*> pu8
 
-private def parseLeapSecond (p : Parser Int) : Parser LeapSecond :=
+private def parseLeapSecond (p : Parser String Int) : Parser String LeapSecond :=
   LeapSecond.mk
     <$> p
     <*> pi32
 
-private def parseTransitionTimes (size : Parser Int32) (n : UInt32) : Parser (Array Int32) :=
+private def parseTransitionTimes (size : Parser String Int32) (n : UInt32) : Parser String (Array Int32) :=
   manyN (n.toNat) size
 
-private def parseTransitionIndices (n : UInt32) : Parser (Array UInt8) :=
+private def parseTransitionIndices (n : UInt32) : Parser String (Array UInt8) :=
   manyN (n.toNat) pu8
 
-private def parseLocalTimeTypes (n : UInt32) : Parser (Array LocalTimeType) :=
+private def parseLocalTimeTypes (n : UInt32) : Parser String (Array LocalTimeType) :=
   manyN (n.toNat) parseLocalTimeType
 
-private def parseAbbreviations (times : Array LocalTimeType) (n : UInt32) : Parser (Array String) := do
+private def parseAbbreviations (times : Array LocalTimeType) (n : UInt32) : Parser String (Array String) := do
   let mut strings := #[]
   let mut current := ""
   let mut chars ← manyN n.toNat pu8
@@ -253,13 +253,13 @@ private def parseAbbreviations (times : Array LocalTimeType) (n : UInt32) : Pars
 
   return strings
 
-private def parseLeapSeconds (size : Parser Int) (n : UInt32) : Parser (Array LeapSecond) :=
+private def parseLeapSeconds (size : Parser String Int) (n : UInt32) : Parser String (Array LeapSecond) :=
   manyN (n.toNat) (parseLeapSecond size)
 
-private def parseIndicators (n : UInt32) : Parser (Array Bool) :=
+private def parseIndicators (n : UInt32) : Parser String (Array Bool) :=
   manyN (n.toNat) pbool
 
-private def parseTZifV1 : Parser TZifV1 := do
+private def parseTZifV1 : Parser String TZifV1 := do
   let header ← parseHeader
 
   let transitionTimes ← parseTransitionTimes pi32 header.timecnt
@@ -281,7 +281,7 @@ private def parseTZifV1 : Parser TZifV1 := do
       utLocalIndicators
   }
 
-private def parseFooter : Parser (Option String) := do
+private def parseFooter : Parser String (Option String) := do
   let char ← pu8
 
   if char = 0x0A then pure () else return none
@@ -294,7 +294,7 @@ private def parseFooter : Parser (Option String) := do
 
   return some str
 
-private def parseTZifV2 : Parser (Option TZifV2) := optional do
+private def parseTZifV2 : Parser String (Option TZifV2) := optional do
   let header ← parseHeader
 
   let transitionTimes ← parseTransitionTimes pi64 header.timecnt
@@ -320,7 +320,7 @@ private def parseTZifV2 : Parser (Option TZifV2) := optional do
 /--
 Parses a TZif file, which may be in either version 1 or version 2 format.
 -/
-def parse : Parser TZif := do
+def parse : Parser String TZif := do
   let v1 ← parseTZifV1
   let v2 ← parseTZifV2
   return { v1, v2 }

@@ -439,46 +439,46 @@ inductive Modifier
 `abstractParse` abstracts the parsing logic for any type that has a classify function.
 It takes a constructor function to build the `Modifier` and a classify function that maps the pattern length to a specific type.
 -/
-private def parseMod (constructor : α → Modifier) (classify : Nat → Option α) (p : String) : Parser Modifier :=
+private def parseMod (constructor : α → Modifier) (classify : Nat → Option α) (p : String) : Parser String Modifier :=
   let len := p.length
   match classify len with
   | some res => pure (constructor res)
   | none => fail s!"invalid quantity of characters for '{p.get 0}'"
 
-private def parseText (constructor : Text → Modifier) (p : String) : Parser Modifier :=
+private def parseText (constructor : Text → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor Text.classify p
 
-private def parseFraction (constructor : Fraction → Modifier) (p : String) : Parser Modifier :=
+private def parseFraction (constructor : Fraction → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor Fraction.classify p
 
-private def parseNumber (constructor : Number → Modifier) (p : String) : Parser Modifier :=
+private def parseNumber (constructor : Number → Modifier) (p : String) : Parser String Modifier :=
   pure (constructor ⟨p.length⟩)
 
-private def parseYear (constructor : Year → Modifier) (p : String) : Parser Modifier :=
+private def parseYear (constructor : Year → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor Year.classify p
 
-private def parseOffsetX (constructor : OffsetX → Modifier) (p : String) : Parser Modifier :=
+private def parseOffsetX (constructor : OffsetX → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor OffsetX.classify p
 
-private def parseOffsetZ (constructor : OffsetZ → Modifier) (p : String) : Parser Modifier :=
+private def parseOffsetZ (constructor : OffsetZ → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor OffsetZ.classify p
 
-private def parseOffsetO (constructor : OffsetO → Modifier) (p : String) : Parser Modifier :=
+private def parseOffsetO (constructor : OffsetO → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor OffsetO.classify p
 
-private def parseZoneId (p : String) : Parser Modifier :=
+private def parseZoneId (p : String) : Parser String Modifier :=
   if p.length = 2 then pure .V else fail s!"invalid quantity of characters for '{p.get 0}'"
 
-private def parseNumberText (constructor : (Number ⊕ Text) → Modifier) (p : String) : Parser Modifier :=
+private def parseNumberText (constructor : (Number ⊕ Text) → Modifier) (p : String) : Parser String Modifier :=
   parseMod constructor classifyNumberText p
 
-private def parseZoneName (constructor : ZoneName → Modifier) (p : String) : Parser Modifier :=
+private def parseZoneName (constructor : ZoneName → Modifier) (p : String) : Parser String Modifier :=
   let len := p.length
   match ZoneName.classify (p.get 0) len with
   | some res => pure (constructor res)
   | none => fail s!"invalid quantity of characters for '{p.get 0}'"
 
-private def parseModifier : Parser Modifier
+private def parseModifier : Parser String Modifier
   := (parseText Modifier.G =<< many1Chars (pchar 'G'))
   <|> parseYear Modifier.y =<< many1Chars (pchar 'y')
   <|> parseYear Modifier.u =<< many1Chars (pchar 'u')
@@ -598,18 +598,18 @@ structure GenericFormat (awareness : Awareness) where
   string : FormatString
   deriving Inhabited, Repr
 
-private def parseFormatPart : Parser FormatPart
+private def parseFormatPart : Parser String FormatPart
   := (.modifier <$> parseModifier)
   <|> (pchar '\\') *> any <&> (.string ∘ toString)
   <|> (pchar '\"' *>  many1Chars (satisfy (· ≠ '\"')) <* pchar '\"') <&> .string
   <|> (pchar '\'' *>  many1Chars (satisfy (· ≠ '\'')) <* pchar '\'') <&> .string
   <|> many1Chars (satisfy (fun x => ¬Char.isAlpha x ∧ x ≠ '\'' ∧ x ≠ '\"')) <&> .string
 
-private def specParser : Parser FormatString :=
+private def specParser : Parser String FormatString :=
   (Array.toList <$> many parseFormatPart) <* eof
 
 private def specParse (s : String) : Except String FormatString :=
-  specParser.run s
+  specParser.run s |>.mapError toString
 
 -- Pretty printer
 
@@ -948,7 +948,7 @@ private def dateFromModifier (date : DateTime tz) : TypeFormat modifier :=
   | .x _ => tz.offset
   | .Z _ => tz.offset
 
-private def parseMonthLong : Parser Month.Ordinal
+private def parseMonthLong : Parser String Month.Ordinal
    := pstring "January" *> pure ⟨1, by decide⟩
   <|> pstring "February" *> pure ⟨2, by decide⟩
   <|> pstring "March" *> pure ⟨3, by decide⟩
@@ -965,7 +965,7 @@ private def parseMonthLong : Parser Month.Ordinal
 /--
 Parses a short value of a `Month.Ordinal`
 -/
-def parseMonthShort : Parser Month.Ordinal
+def parseMonthShort : Parser String Month.Ordinal
    := pstring "Jan" *> pure ⟨1, by decide⟩
   <|> pstring "Feb" *> pure ⟨2, by decide⟩
   <|> pstring "Mar" *> pure ⟨3, by decide⟩
@@ -979,7 +979,7 @@ def parseMonthShort : Parser Month.Ordinal
   <|> pstring "Nov" *> pure ⟨11, by decide⟩
   <|> pstring "Dec" *> pure ⟨12, by decide⟩
 
-private def parseMonthNarrow : Parser Month.Ordinal
+private def parseMonthNarrow : Parser String Month.Ordinal
    := pstring "J" *> pure ⟨1, by decide⟩
   <|> pstring "F" *> pure ⟨2, by decide⟩
   <|> pstring "M" *> pure ⟨3, by decide⟩
@@ -993,7 +993,7 @@ private def parseMonthNarrow : Parser Month.Ordinal
   <|> pstring "N" *> pure ⟨11, by decide⟩
   <|> pstring "D" *> pure ⟨12, by decide⟩
 
-private def parseWeekdayLong : Parser Weekday
+private def parseWeekdayLong : Parser String Weekday
    := pstring "Sunday" *> pure Weekday.sunday
   <|> pstring "Monday" *> pure Weekday.monday
   <|> pstring "Tuesday" *> pure Weekday.tuesday
@@ -1002,7 +1002,7 @@ private def parseWeekdayLong : Parser Weekday
   <|> pstring "Friday" *> pure Weekday.friday
   <|> pstring "Saturday" *> pure Weekday.saturday
 
-private def parseWeekdayShort : Parser Weekday
+private def parseWeekdayShort : Parser String Weekday
    := pstring "Sun" *> pure Weekday.sunday
   <|> pstring "Mon" *> pure Weekday.monday
   <|> pstring "Tue" *> pure Weekday.tuesday
@@ -1011,7 +1011,7 @@ private def parseWeekdayShort : Parser Weekday
   <|> pstring "Fri" *> pure Weekday.friday
   <|> pstring "Sat" *> pure Weekday.saturday
 
-private def parseWeekdayNarrow : Parser Weekday
+private def parseWeekdayNarrow : Parser String Weekday
    := pstring "S" *> pure Weekday.sunday
   <|> pstring "M" *> pure Weekday.monday
   <|> pstring "T" *> pure Weekday.tuesday
@@ -1020,50 +1020,50 @@ private def parseWeekdayNarrow : Parser Weekday
   <|> pstring "F" *> pure Weekday.friday
   <|> pstring "S" *> pure Weekday.saturday
 
-private def parseEraShort : Parser Year.Era
+private def parseEraShort : Parser String Year.Era
    := pstring "BCE" *> pure Year.Era.bce
   <|> pstring "CE" *> pure Year.Era.ce
 
-private def parseEraLong : Parser Year.Era
+private def parseEraLong : Parser String Year.Era
    := pstring "Before Common Era" *> pure Year.Era.bce
   <|> pstring "Common Era" *> pure Year.Era.ce
 
-private def parseEraNarrow : Parser Year.Era
+private def parseEraNarrow : Parser String Year.Era
    := pstring "B" *> pure Year.Era.bce
   <|> pstring "C" *> pure Year.Era.ce
 
-private def parseQuarterNumber : Parser Month.Quarter
+private def parseQuarterNumber : Parser String Month.Quarter
    := pstring "1" *> pure ⟨1, by decide⟩
   <|> pstring "2" *> pure ⟨2, by decide⟩
   <|> pstring "3" *> pure ⟨3, by decide⟩
   <|> pstring "4" *> pure ⟨4, by decide⟩
 
-private def parseQuarterLong : Parser Month.Quarter
+private def parseQuarterLong : Parser String Month.Quarter
    := pstring "1st quarter" *> pure ⟨1, by decide⟩
   <|> pstring "2nd quarter" *> pure ⟨2, by decide⟩
   <|> pstring "3rd quarter" *> pure ⟨3, by decide⟩
   <|> pstring "4th quarter" *> pure ⟨4, by decide⟩
 
-private def parseQuarterShort : Parser Month.Quarter
+private def parseQuarterShort : Parser String Month.Quarter
    := pstring "Q1" *> pure ⟨1, by decide⟩
   <|> pstring "Q2" *> pure ⟨2, by decide⟩
   <|> pstring "Q3" *> pure ⟨3, by decide⟩
   <|> pstring "Q4" *> pure ⟨4, by decide⟩
 
-private def parseMarkerShort : Parser HourMarker
+private def parseMarkerShort : Parser String HourMarker
    := pstring "AM" *> pure HourMarker.am
   <|> pstring "PM" *> pure HourMarker.pm
 
-private def parseMarkerLong : Parser HourMarker
+private def parseMarkerLong : Parser String HourMarker
    := pstring "Ante Meridiem" *> pure HourMarker.am
   <|> pstring "Post Meridiem" *> pure HourMarker.pm
 
-private def parseMarkerNarrow : Parser HourMarker
+private def parseMarkerNarrow : Parser String HourMarker
    := pstring "A" *> pure HourMarker.am
   <|> pstring "P" *> pure HourMarker.pm
 
-private def exactly (parse : Parser α) (size : Nat) : Parser (Array α) :=
-  let rec go (acc : Array α) (count : Nat) : Parser (Array α) :=
+private def exactly (parse : Parser String α) (size : Nat) : Parser String (Array α) :=
+  let rec go (acc : Array α) (count : Nat) : Parser String (Array α) :=
     if count ≥ size then
       pure acc
     else do
@@ -1073,8 +1073,8 @@ private def exactly (parse : Parser α) (size : Nat) : Parser (Array α) :=
 
   go #[] 12
 
-private def exactlyChars (parse : Parser Char) (size : Nat) : Parser String :=
-  let rec go (acc : String) (count : Nat) : Parser String :=
+private def exactlyChars (parse : Parser String Char) (size : Nat) : Parser String String :=
+  let rec go (acc : String) (count : Nat) : Parser String String :=
     if count ≥ size then
       pure acc
     else do
@@ -1084,30 +1084,30 @@ private def exactlyChars (parse : Parser Char) (size : Nat) : Parser String :=
 
   go "" 0
 
-private def parseSigned (parser : Parser Nat) : Parser Int := do
+private def parseSigned (parser : Parser String Nat) : Parser String Int := do
   let signed ← optional (pstring "-")
   let res ← parser
   return if signed.isSome then -res else res
 
-private def parseNum (size : Nat) : Parser Nat :=
+private def parseNum (size : Nat) : Parser String Nat :=
   String.toNat! <$> exactlyChars (satisfy Char.isDigit) size
 
-private def parseAtLeastNum (size : Nat) : Parser Nat :=
+private def parseAtLeastNum (size : Nat) : Parser String Nat :=
   String.toNat! <$> do
     let start ← exactlyChars (satisfy Char.isDigit) size
     let end_ ← manyChars (satisfy Char.isDigit)
     pure (start ++ end_)
 
-private def parseFlexibleNum (size : Nat) : Parser Nat :=
+private def parseFlexibleNum (size : Nat) : Parser String Nat :=
   if size = 1 then parseAtLeastNum 1 else parseNum size
 
-private def parseFractionNum (size : Nat) (pad : Nat) : Parser Nat :=
+private def parseFractionNum (size : Nat) (pad : Nat) : Parser String Nat :=
   String.toNat! <$> rightPad pad '0' <$> exactlyChars (satisfy Char.isDigit) size
 
-private def parseIdentifier : Parser String :=
+private def parseIdentifier : Parser String String :=
   many1Chars (satisfy (fun x => x.isAlpha ∨ x.isDigit ∨ x = '_' ∨ x = '-' ∨ x = '/'))
 
-private def parseNatToBounded { n m : Nat } (parser : Parser Nat) : Parser (Bounded.LE n m) := do
+private def parseNatToBounded { n m : Nat } (parser : Parser String Nat) : Parser String (Bounded.LE n m) := do
   let res ← parser
   if h : n ≤ res ∧ res ≤ m then
     return Bounded.LE.ofNat' res h
@@ -1119,7 +1119,7 @@ private inductive Reason
   | no
   | optional
 
-private def parseOffset (withMinutes : Reason) (withSeconds : Reason) (withColon : Bool) : Parser Offset := do
+private def parseOffset (withMinutes : Reason) (withSeconds : Reason) (withColon : Bool) : Parser String Offset := do
   let sign ← (pchar '+' *> pure 1) <|> (pchar '-' *> pure (-1))
   let hours : Hour.Offset ← UnitVal.ofInt <$> parseNum 2
 
@@ -1128,7 +1128,7 @@ private def parseOffset (withMinutes : Reason) (withSeconds : Reason) (withColon
 
   let colon := if withColon then pchar ':' else pure ':'
 
-  let parseUnit {n} (reason : Reason) : Parser (Option (UnitVal n)) :=
+  let parseUnit {n} (reason : Reason) : Parser String (Option (UnitVal n)) :=
     match reason with
     | .yes => some <$> (colon *> UnitVal.ofInt <$> parseNum 2)
     | .no => pure none
@@ -1150,7 +1150,7 @@ private def parseOffset (withMinutes : Reason) (withSeconds : Reason) (withColon
 
   return Offset.ofSeconds ⟨hours.val * sign⟩
 
-private def parseWith (config : FormatConfig) : (mod : Modifier) → Parser (TypeFormat mod)
+private def parseWith (config : FormatConfig) : (mod : Modifier) → Parser String (TypeFormat mod)
   | .G format =>
     match format with
     | .short => parseEraShort
@@ -1229,7 +1229,7 @@ private def parseWith (config : FormatConfig) : (mod : Modifier) → Parser (Typ
     | .short => pstring "GMT" *> parseOffset .no .no false
     | .full => pstring "GMT" *> parseOffset .yes .optional false
   | .X format =>
-    let p : Parser Offset :=
+    let p : Parser String Offset :=
       match format with
         | .hour => parseOffset .no .no false
         | .hourMinute => parseOffset .yes .no false
@@ -1400,7 +1400,7 @@ private def build (builder : DateBuilder) (aw : Awareness) : Option aw.type :=
 
 end DateBuilder
 
-private def parseWithDate (date : DateBuilder) (config : FormatConfig) (mod : FormatPart) : Parser DateBuilder := do
+private def parseWithDate (date : DateBuilder) (config : FormatConfig) (mod : FormatPart) : Parser String DateBuilder := do
   match mod with
   | .modifier s => do
     let res ← parseWith config s
@@ -1412,7 +1412,7 @@ Constructs a new `GenericFormat` specification for a date-time string. Modifiers
 custom formats, such as "YYYY, MMMM, D".
 -/
 def spec (input : String) (config : FormatConfig := {}) : Except String (GenericFormat tz) := do
-  let string ← specParser.run input
+  let string ← specParser.run input |>.mapError toString
   return ⟨config, string⟩
 
 /--
@@ -1421,7 +1421,7 @@ Builds a `GenericFormat` from the input string. If parsing fails, it will panic
 def spec! (input : String) (config : FormatConfig := {}) : GenericFormat tz :=
   match specParser.run input with
   | .ok res => ⟨config, res⟩
-  | .error res => panic! res
+  | .error res => panic! toString res
 
 /--
 Formats a `DateTime` value into a string using the given `GenericFormat`.
@@ -1435,8 +1435,8 @@ def format (format : GenericFormat aw) (date : DateTime tz) : String :=
   format.string.map mapper
   |> String.join
 
-private def parser (format : FormatString) (config : FormatConfig) (aw : Awareness) : Parser (aw.type) :=
-  let rec go (builder : DateBuilder) (x : FormatString) : Parser aw.type :=
+private def parser (format : FormatString) (config : FormatConfig) (aw : Awareness) : Parser String (aw.type) :=
+  let rec go (builder : DateBuilder) (x : FormatString) : Parser String aw.type :=
     match x with
     | x :: xs => parseWithDate builder config x >>= (go · xs)
     | [] =>
@@ -1446,10 +1446,10 @@ private def parser (format : FormatString) (config : FormatConfig) (aw : Awarene
   go {} format
 
 /--
-Parser for a format with a builder.
+Parser String for a format with a builder.
 -/
-def builderParser (format: FormatString) (config : FormatConfig) (func: FormatType (Option α) format) : Parser α :=
-  let rec go (format : FormatString) (func: FormatType (Option α) format) : Parser α :=
+def builderParser (format: FormatString) (config : FormatConfig) (func: FormatType (Option α) format) : Parser String α :=
+  let rec go (format : FormatString) (func: FormatType (Option α) format) : Parser String α :=
     match format with
     | .modifier x :: xs => do
       let res ← parseWith config x
@@ -1466,6 +1466,7 @@ Parses the input string into a `ZoneDateTime`.
 -/
 def parse (format : GenericFormat aw) (input : String) : Except String aw.type :=
   (parser format.string format.config aw <* eof).run input
+  |>.mapError toString
 
 /--
 Parses the input string into a `ZoneDateTime` and panics if its wrong.
@@ -1480,6 +1481,7 @@ Parses an input string using a builder function to produce a value.
 -/
 def parseBuilder (format : GenericFormat aw)  (builder : FormatType (Option α) format.string) (input : String) : Except String α :=
   (builderParser format.string format.config builder).run input
+  |>.mapError toString
 
 /--
 Parses an input string using a builder function, panicking on errors.

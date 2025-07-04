@@ -73,12 +73,12 @@ def _root_.Lean.Widget.GetWidgetsResponse.debugJson (r : Widget.GetWidgetsRespon
 
 open Std.Internal.Parsec in
 open Std.Internal.Parsec.String in
-def word : Parser String :=
+def word : Parser String String :=
   many1Chars <| digit <|> asciiLetter <|> pchar '_'
 
 open Std.Internal.Parsec in
 open Std.Internal.Parsec.String in
-def ident : Parser Name := do
+def ident : Parser String Name := do
   let head ← word
   let xs ← many1 (pchar '.' *> word)
   return xs.foldl .str $ .mkSimple head
