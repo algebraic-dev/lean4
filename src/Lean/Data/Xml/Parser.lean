@@ -22,14 +22,14 @@ abbrev LeanChar := Char
 
 /-- consume a newline character sequence pretending, that we read '\n'. As per spec:
   https://www.w3.org/TR/xml/#sec-line-ends -/
-def endl : Parser String LeanChar := (skipString "\r\n" <|> skipChar '\r' <|> skipChar '\n') *> pure '\n'
+def endl : Parser LeanChar := (skipString "\r\n" <|> skipChar '\r' <|> skipChar '\n') *> pure '\n'
 
-def quote (p : Parser String α) : Parser String α :=
+def quote (p : Parser α) : Parser α :=
   skipChar '\'' *> p <* skipChar '\''
   <|> skipChar '"' *> p <* skipChar '"'
 
 /-- https://www.w3.org/TR/xml/#NT-Char -/
-def Char : Parser String LeanChar :=
+def Char : Parser LeanChar :=
   (attempt do
   let c ← any
   let cNat := c.toNat
@@ -39,11 +39,11 @@ def Char : Parser String LeanChar :=
   <|> pchar '\t' <|> endl
 
 /-- https://www.w3.org/TR/xml/#NT-S -/
-def S : Parser String String :=
+def S : Parser String :=
   many1Chars (pchar ' ' <|> endl <|> pchar '\t')
 
 /-- https://www.w3.org/TR/xml/#NT-Eq -/
-def Eq : Parser String Unit :=
+def Eq : Parser Unit :=
   optional S *> skipChar '=' <* optional S
 
 private def nameStartCharRanges : Array (Nat × Nat) :=
@@ -61,7 +61,7 @@ private def nameStartCharRanges : Array (Nat × Nat) :=
     (0x10000, 0xEFFFF)]
 
 /-- https://www.w3.org/TR/xml/#NT-NameStartChar -/
-def NameStartChar : Parser String LeanChar := attempt do
+def NameStartChar : Parser LeanChar := attempt do
   let c ← any
   if ('A' ≤ c ∧ c ≤ 'Z') ∨ ('a' ≤ c ∧ c ≤ 'z') then pure c
   else if c = ':' ∨ c = '_' then pure c
@@ -71,44 +71,44 @@ def NameStartChar : Parser String LeanChar := attempt do
     else fail "expected a name character"
 
 /-- https://www.w3.org/TR/xml/#NT-NameChar -/
-def NameChar : Parser String LeanChar :=
+def NameChar : Parser LeanChar :=
   NameStartChar <|> digit <|> pchar '-' <|> pchar '.' <|> pchar '\xB7'
   <|> satisfy (λ c => ('\u0300' ≤ c ∧ c ≤ '\u036F') ∨ ('\u203F' ≤ c ∧ c ≤ '\u2040'))
 
 /-- https://www.w3.org/TR/xml/#NT-Name -/
-def Name : Parser String String := do
+def Name : Parser String := do
   let x ← NameStartChar
   manyCharsCore NameChar x.toString
 
 /-- https://www.w3.org/TR/xml/#NT-VersionNum -/
-def VersionNum : Parser String Unit :=
+def VersionNum : Parser Unit :=
   skipString "1." <* (many1 digit)
 
 /-- https://www.w3.org/TR/xml/#NT-VersionInfo -/
-def VersionInfo : Parser String Unit := do
+def VersionInfo : Parser Unit := do
   S *>
   skipString "version"
   Eq
   quote VersionNum
 
 /-- https://www.w3.org/TR/xml/#NT-EncName -/
-def EncName : Parser String String := do
+def EncName : Parser String := do
   let x ← asciiLetter
   manyCharsCore (asciiLetter <|> digit <|> pchar '-' <|> pchar '_' <|> pchar '.') x.toString
 
 /-- https://www.w3.org/TR/xml/#NT-EncodingDecl -/
-def EncodingDecl : Parser String String := do
+def EncodingDecl : Parser String := do
   S *>
   skipString "encoding"
   Eq
   quote EncName
 
 /-- https://www.w3.org/TR/xml/#NT-SDDecl -/
-def SDDecl : Parser String String := do
+def SDDecl : Parser String := do
   S *> skipString "standalone" *> Eq *> quote (pstring "yes" <|> pstring "no")
 
 /-- https://www.w3.org/TR/xml/#NT-XMLDecl -/
-def XMLdecl : Parser String Unit := do
+def XMLdecl : Parser Unit := do
   skipString "<?xml"
   VersionInfo
   optional EncodingDecl *>
@@ -117,7 +117,7 @@ def XMLdecl : Parser String Unit := do
   skipString "?>"
 
 /-- https://www.w3.org/TR/xml/#NT-Comment -/
-def Comment : Parser String String :=
+def Comment : Parser String :=
   let notDash := Char.toString <$> satisfy (λ c => c ≠ '-')
   skipString "<!--" *>
   Array.foldl String.append "" <$> many (attempt <| notDash <|> (do
@@ -127,45 +127,45 @@ def Comment : Parser String String :=
   <* skipString "-->"
 
 /-- https://www.w3.org/TR/xml/#NT-PITarget -/
-def PITarget : Parser String String :=
+def PITarget : Parser String :=
   Name <* (skipChar 'X' <|> skipChar 'x') <* (skipChar 'M' <|> skipChar 'm') <* (skipChar 'L' <|> skipChar 'l')
 
 /-- https://www.w3.org/TR/xml/#NT-PI -/
-def PI : Parser String Unit := do
+def PI : Parser Unit := do
   skipString "<?"
   <* PITarget <*
   optional (S *> manyChars (notFollowedBy (skipString "?>") *> Char))
   skipString "?>"
 
 /-- https://www.w3.org/TR/xml/#NT-Misc -/
-def Misc : Parser String Unit :=
+def Misc : Parser Unit :=
   Comment *> pure () <|> PI <|> S *> pure ()
 
 /-- https://www.w3.org/TR/xml/#NT-SystemLiteral -/
-def SystemLiteral : Parser String String :=
+def SystemLiteral : Parser String :=
   pchar '"' *> manyChars (satisfy λ c => c ≠ '"') <* pchar '"'
   <|> pchar '\'' *> manyChars (satisfy λ c => c ≠ '\'') <* pure '\''
 
 /-- https://www.w3.org/TR/xml/#NT-PubidChar -/
-def PubidChar : Parser String LeanChar :=
+def PubidChar : Parser LeanChar :=
   asciiLetter <|> digit <|> endl <|> attempt do
   let c ← any
   if "-'()+,./:=?;!*#@$_%".contains c then pure c else fail "PublidChar expected"
 
 /-- https://www.w3.org/TR/xml/#NT-PubidLiteral -/
-def PubidLiteral : Parser String String :=
+def PubidLiteral : Parser String :=
   pchar '"' *> manyChars PubidChar <* pchar '"'
   <|> pchar '\'' *> manyChars (attempt do
     let c ← PubidChar
     if c = '\'' then fail "'\\'' not expected" else pure c) <* pchar '\''
 
 /-- https://www.w3.org/TR/xml/#NT-ExternalID -/
-def ExternalID : Parser String Unit :=
+def ExternalID : Parser Unit :=
   skipString "SYSTEM" *> S *> SystemLiteral *> pure ()
   <|> skipString "PUBLIC" *> S *> PubidLiteral *> S *> SystemLiteral *> pure ()
 
 /-- https://www.w3.org/TR/xml/#NT-Mixed -/
-def Mixed : Parser String Unit :=
+def Mixed : Parser Unit :=
   (do
     skipChar '('
     optional S *>
@@ -177,11 +177,11 @@ def Mixed : Parser String Unit :=
 
 mutual
   /-- https://www.w3.org/TR/xml/#NT-cp -/
-  partial def cp : Parser String Unit :=
+  partial def cp : Parser Unit :=
     (Name *> pure () <|> choice <|> seq) <* optional (skipChar '?' <|> skipChar '*' <|> skipChar '+')
 
   /-- https://www.w3.org/TR/xml/#NT-choice -/
-  partial def choice : Parser String Unit := do
+  partial def choice : Parser Unit := do
     skipChar '('
     optional S *>
     cp
@@ -190,7 +190,7 @@ mutual
     skipChar ')'
 
   /-- https://www.w3.org/TR/xml/#NT-seq -/
-  partial def seq : Parser String Unit := do
+  partial def seq : Parser Unit := do
     skipChar '('
     optional S *>
     cp
@@ -200,15 +200,15 @@ mutual
 end
 
 /-- https://www.w3.org/TR/xml/#NT-children -/
-def children : Parser String Unit :=
+def children : Parser Unit :=
   (choice <|> seq) <* optional (skipChar '?' <|> skipChar '*' <|> skipChar '+')
 
 /-- https://www.w3.org/TR/xml/#NT-contentspec -/
-def contentspec : Parser String Unit := do
+def contentspec : Parser Unit := do
   skipString "EMPTY" <|> skipString "ANY" <|> Mixed <|> children
 
 /-- https://www.w3.org/TR/xml/#NT-elementdecl -/
-def elementDecl : Parser String Unit := do
+def elementDecl : Parser Unit := do
   skipString "<!ELEMENT"
   S *>
   Name *>
@@ -217,11 +217,11 @@ def elementDecl : Parser String Unit := do
   skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-StringType -/
-def StringType : Parser String Unit :=
+def StringType : Parser Unit :=
   skipString "CDATA"
 
 /-- https://www.w3.org/TR/xml/#NT-TokenizedType -/
-def TokenizedType : Parser String Unit :=
+def TokenizedType : Parser Unit :=
   skipString "ID"
   <|> skipString "IDREF"
   <|> skipString "IDREFS"
@@ -231,7 +231,7 @@ def TokenizedType : Parser String Unit :=
   <|> skipString "NMTOKENS"
 
 /-- https://www.w3.org/TR/xml/#NT-NotationType -/
-def NotationType : Parser String Unit := do
+def NotationType : Parser Unit := do
   skipString "NOTATION"
   S *>
   skipChar '(' <*
@@ -241,11 +241,11 @@ def NotationType : Parser String Unit := do
   skipChar ')'
 
 /-- https://www.w3.org/TR/xml/#NT-Nmtoken -/
-def Nmtoken : Parser String String := do
+def Nmtoken : Parser String := do
   many1Chars NameChar
 
 /-- https://www.w3.org/TR/xml/#NT-Enumeration -/
-def Enumeration : Parser String Unit := do
+def Enumeration : Parser Unit := do
   skipChar '('
   optional S *>
   Nmtoken *> many (optional S *> skipChar '|' *> optional S *> Nmtoken) *>
@@ -253,11 +253,11 @@ def Enumeration : Parser String Unit := do
   skipChar ')'
 
 /-- https://www.w3.org/TR/xml/#NT-EnumeratedType -/
-def EnumeratedType : Parser String Unit :=
+def EnumeratedType : Parser Unit :=
   NotationType <|> Enumeration
 
 /-- https://www.w3.org/TR/xml/#NT-AttType -/
-def AttType : Parser String Unit :=
+def AttType : Parser Unit :=
   StringType <|> TokenizedType <|> EnumeratedType
 
 def predefinedEntityToChar : String → Option LeanChar
@@ -269,7 +269,7 @@ def predefinedEntityToChar : String → Option LeanChar
 | _ => none
 
 /-- https://www.w3.org/TR/xml/#NT-EntityRef -/
-def EntityRef : Parser String $ Option LeanChar := attempt $
+def EntityRef : Parser $ Option LeanChar := attempt $
   skipChar '&' *> predefinedEntityToChar <$> Name <* skipChar ';'
 
 @[inline]
@@ -282,7 +282,7 @@ def digitsToNat (base : Nat) (digits : Array Nat) : Nat :=
   digits.foldl (λ r d => r * base + d) 0
 
 /-- https://www.w3.org/TR/xml/#NT-CharRef -/
-def CharRef : Parser String LeanChar := do
+def CharRef : Parser LeanChar := do
   skipString "&#"
   let charCode ←
     digitsToNat 10 <$> many1 (hexDigitToNat <$> digit)
@@ -291,11 +291,11 @@ def CharRef : Parser String LeanChar := do
   return Char.ofNat charCode
 
 /-- https://www.w3.org/TR/xml/#NT-Reference -/
-def Reference : Parser String $ Option LeanChar :=
+def Reference : Parser $ Option LeanChar :=
   EntityRef <|> some <$> CharRef
 
 /-- https://www.w3.org/TR/xml/#NT-AttValue -/
-def AttValue : Parser String String := do
+def AttValue : Parser String := do
   let chars ←
   (do
     skipChar '"'
@@ -308,25 +308,25 @@ def AttValue : Parser String String := do
   return chars.foldl (λ s c => if let some c := c then s.push c else s) ""
 
 /-- https://www.w3.org/TR/xml/#NT-DefaultDecl -/
-def DefaultDecl : Parser String Unit :=
+def DefaultDecl : Parser Unit :=
   skipString "#REQUIRED"
   <|> skipString "#IMPLIED"
   <|> optional (skipString "#FIXED" <* S) *> AttValue *> pure ()
 
 /-- https://www.w3.org/TR/xml/#NT-AttDef -/
-def AttDef : Parser String Unit :=
+def AttDef : Parser Unit :=
   S *> Name *> S *> AttType *> S *> DefaultDecl
 
 /-- https://www.w3.org/TR/xml/#NT-AttlistDecl -/
-def AttlistDecl : Parser String Unit :=
+def AttlistDecl : Parser Unit :=
   skipString "<!ATTLIST" *> S *> Name *> many AttDef *> optional S *> skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-PEReference -/
-def PEReference : Parser String Unit :=
+def PEReference : Parser Unit :=
   skipChar '%' *> Name *> skipChar ';'
 
 /-- https://www.w3.org/TR/xml/#NT-EntityValue -/
-def EntityValue : Parser String String := do
+def EntityValue : Parser String := do
   let chars ←
   (do
     skipChar '"'
@@ -340,51 +340,51 @@ def EntityValue : Parser String String := do
 
 
 /-- https://www.w3.org/TR/xml/#NT-NDataDecl -/
-def NDataDecl : Parser String Unit :=
+def NDataDecl : Parser Unit :=
   S *> skipString "NDATA" <* S <* Name
 
 /-- https://www.w3.org/TR/xml/#NT-EntityDef -/
-def EntityDef : Parser String Unit :=
+def EntityDef : Parser Unit :=
   EntityValue *> pure () <|> (ExternalID <* optional NDataDecl)
 
 /-- https://www.w3.org/TR/xml/#NT-GEDecl -/
-def GEDecl : Parser String Unit :=
+def GEDecl : Parser Unit :=
   skipString "<!ENTITY" *> S *> Name *> S *> EntityDef *> optional S *> skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-PEDef -/
-def PEDef : Parser String Unit :=
+def PEDef : Parser Unit :=
   EntityValue *> pure () <|> ExternalID
 
 /-- https://www.w3.org/TR/xml/#NT-PEDecl -/
-def PEDecl : Parser String Unit :=
+def PEDecl : Parser Unit :=
   skipString "<!ENTITY" *> S *> skipChar '%' *> S *> Name *> PEDef *> optional S *> skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-EntityDecl -/
-def EntityDecl : Parser String Unit :=
+def EntityDecl : Parser Unit :=
   GEDecl <|> PEDecl
 
 /-- https://www.w3.org/TR/xml/#NT-PublicID -/
-def PublicID : Parser String Unit :=
+def PublicID : Parser Unit :=
   skipString "PUBLIC" <* S <* PubidLiteral
 
 /-- https://www.w3.org/TR/xml/#NT-NotationDecl -/
-def NotationDecl : Parser String Unit :=
+def NotationDecl : Parser Unit :=
   skipString "<!NOTATION" *> S *> Name *> (ExternalID <|> PublicID) *> optional S *> skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-markupdecl -/
-def markupDecl : Parser String Unit :=
+def markupDecl : Parser Unit :=
   elementDecl <|> AttlistDecl <|> EntityDecl <|> NotationDecl <|> PI <|> (Comment *> pure ())
 
 /-- https://www.w3.org/TR/xml/#NT-DeclSep -/
-def DeclSep : Parser String Unit :=
+def DeclSep : Parser Unit :=
   PEReference <|> S *> pure ()
 
 /-- https://www.w3.org/TR/xml/#NT-intSubset -/
-def intSubset : Parser String Unit :=
+def intSubset : Parser Unit :=
   many (markupDecl <|> DeclSep) *> pure ()
 
 /-- https://www.w3.org/TR/xml/#NT-doctypedecl -/
-def doctypedecl : Parser String Unit := do
+def doctypedecl : Parser Unit := do
   skipString "<!DOCTYPE"
   S *>
   Name *>
@@ -394,19 +394,19 @@ def doctypedecl : Parser String Unit := do
   skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-prolog -/
-def prolog : Parser String Unit :=
+def prolog : Parser Unit :=
   optional XMLdecl *>
   many Misc *>
   optional (doctypedecl <* many Misc) *> pure ()
 
 /-- https://www.w3.org/TR/xml/#NT-Attribute -/
-def Attribute : Parser String (String × String) := do
+def Attribute : Parser (String × String) := do
   let name ← Name
   Eq
   let value ← AttValue
   return (name, value)
 
-protected def elementPrefix : Parser String (Array Content → Element) := do
+protected def elementPrefix : Parser (Array Content → Element) := do
   skipChar '<'
   let name ← Name
   let attributes ← many (attempt <| S *> Attribute)
@@ -414,40 +414,40 @@ protected def elementPrefix : Parser String (Array Content → Element) := do
   return Element.Element name (RBMap.fromList attributes.toList compare)
 
 /-- https://www.w3.org/TR/xml/#NT-EmptyElemTag -/
-def EmptyElemTag (elem : Array Content → Element) : Parser String Element := do
+def EmptyElemTag (elem : Array Content → Element) : Parser Element := do
   skipString "/>" *> pure (elem #[])
 
 /-- https://www.w3.org/TR/xml/#NT-STag -/
-def STag (elem : Array Content → Element) : Parser String (Array Content → Element) := do
+def STag (elem : Array Content → Element) : Parser (Array Content → Element) := do
   skipChar '>' *> pure elem
 
 /-- https://www.w3.org/TR/xml/#NT-ETag -/
-def ETag : Parser String Unit :=
+def ETag : Parser Unit :=
   skipString "</" *> Name *> optional S *> skipChar '>'
 
 /-- https://www.w3.org/TR/xml/#NT-CDStart -/
-def CDStart : Parser String Unit :=
+def CDStart : Parser Unit :=
   skipString "<![CDATA["
 
 /-- https://www.w3.org/TR/xml/#NT-CDEnd -/
-def CDEnd : Parser String Unit :=
+def CDEnd : Parser Unit :=
   skipString "]]>"
 
 /-- https://www.w3.org/TR/xml/#NT-CData -/
-def CData : Parser String String :=
+def CData : Parser String :=
   manyChars (notFollowedBy (skipString "]]>") *> any)
 
 /-- https://www.w3.org/TR/xml/#NT-CDSect -/
-def CDSect : Parser String String :=
+def CDSect : Parser String :=
   CDStart *> CData <* CDEnd
 
 /-- https://www.w3.org/TR/xml/#NT-CharData -/
-def CharData : Parser String String :=
+def CharData : Parser String :=
   notFollowedBy (skipString "]]>") *> manyChars (satisfy λ c => c ≠ '<' ∧ c ≠ '&')
 
 mutual
   /-- https://www.w3.org/TR/xml/#NT-content -/
-  partial def content : Parser String (Array Content) := do
+  partial def content : Parser (Array Content) := do
     let x ← optional (Content.Character <$> CharData)
     let xs ← many do
       let y ←
@@ -470,19 +470,18 @@ mutual
     return res
 
   /-- https://www.w3.org/TR/xml/#NT-element -/
-  partial def element : Parser String Element := do
+  partial def element : Parser Element := do
     let elem ← Parser.elementPrefix
     EmptyElemTag elem <|> STag elem <*> content <* ETag
 
 end
 
 /-- https://www.w3.org/TR/xml/#NT-document -/
-def document : Parser String Element := prolog *> element <* many Misc <* eof
+def document : Parser Element := prolog *> element <* many Misc <* eof
 
 end Parser
 
 def parse (s : String) : Except String Element :=
   Parser.run Xml.Parser.document s
-  |>.mapError toString
 
 end Xml

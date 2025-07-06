@@ -16,7 +16,7 @@ match p.run () () s with
 | Lean.Parser.Result.ok _ i _ _  := throw "Worked"
 | Result.error msg i _ _         := IO.println ("failed as expected at " ++ toString i ++ ", error: " ++ toString msg)
 
-def str' (s : String) : Parser String :=
+def str' (s : String) : Parser :=
 str s *> pure s
 
 def main : IO Unit :=

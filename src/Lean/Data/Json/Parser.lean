@@ -14,7 +14,7 @@ open Std.Internal.Parsec.String
 
 namespace Lean.Json.Parser
 
-def hexChar : Parser String UInt16 := do
+def hexChar : Parser UInt16 := do
   let c ← any
   if '0' <= c && c <= '9' then
     pure $ (c.val - '0'.val).toUInt16
@@ -25,7 +25,7 @@ def hexChar : Parser String UInt16 := do
   else
     fail "invalid hex character"
 
-def finishSurrogatePair (low : UInt16) : Parser String Char := do
+def finishSurrogatePair (low : UInt16) : Parser Char := do
   let c ← any
   if c != '\\' then fail ""
   let c ← any
@@ -41,7 +41,7 @@ def finishSurrogatePair (low : UInt16) : Parser String Char := do
   else
     fail "" -- should be unreachable
 
-def escapedChar : Parser String Char := do
+def escapedChar : Parser Char := do
   let c ← any
   match c with
   | '\\' => return '\\'
@@ -69,7 +69,7 @@ def escapedChar : Parser String Char := do
       return ⟨val.toUInt32, Or.inr ⟨Nat.not_lt.mp h', Nat.lt_trans val.toFin.isLt (by decide)⟩⟩
   | _ => fail "illegal \\u escape"
 
-partial def strCore (acc : String) : Parser String String := do
+partial def strCore (acc : String) : Parser String := do
   let c ← peek!
   if c == '"' then
     skip
@@ -86,9 +86,9 @@ partial def strCore (acc : String) : Parser String String := do
     else
       fail "unexpected character in string"
 
-@[inline] def str : Parser String String := strCore ""
+@[inline] def str : Parser String := strCore ""
 
-partial def natCore (acc : Nat) : Parser String Nat := do
+partial def natCore (acc : Nat) : Parser Nat := do
   if ← isEof then
     return acc
   else
@@ -100,7 +100,7 @@ partial def natCore (acc : Nat) : Parser String Nat := do
     else
       return acc
 
-partial def natCoreNumDigits (acc digits : Nat) : Parser String (Nat × Nat) := do
+partial def natCoreNumDigits (acc digits : Nat) : Parser (Nat × Nat) := do
   if ← isEof then
     return (acc, digits)
   else
@@ -113,7 +113,7 @@ partial def natCoreNumDigits (acc digits : Nat) : Parser String (Nat × Nat) := 
       return (acc, digits)
 
 @[inline]
-def lookahead (p : Char → Prop) (desc : String) [DecidablePred p] : Parser String Unit := do
+def lookahead (p : Char → Prop) (desc : String) [DecidablePred p] : Parser Unit := do
   let c ← peek!
   if p c then
     return ()
@@ -121,22 +121,22 @@ def lookahead (p : Char → Prop) (desc : String) [DecidablePred p] : Parser Str
     fail <| "expected " ++ desc
 
 @[inline]
-def natNonZero : Parser String Nat := do
+def natNonZero : Parser Nat := do
   lookahead (fun c => '1' <= c && c <= '9') "1-9"
   natCore 0
 
 @[inline]
-def natNumDigits : Parser String (Nat × Nat) := do
+def natNumDigits : Parser (Nat × Nat) := do
   lookahead (fun c => '0' <= c && c <= '9') "digit"
   natCoreNumDigits 0 0
 
 @[inline]
-def natMaybeZero : Parser String Nat := do
+def natMaybeZero : Parser Nat := do
   lookahead (fun c => '0' <= c && c <= '9') "0-9"
   natCore 0
 
 @[inline]
-def numSign : Parser String Int := do
+def numSign : Parser Int := do
   let c ← peek!
   let sign ← if c == '-' then
     skip
@@ -145,7 +145,7 @@ def numSign : Parser String Int := do
     return 1
 
 @[inline]
-def nat : Parser String Nat := do
+def nat : Parser Nat := do
   let c ← peek!
   if c == '0' then
     skip
@@ -154,7 +154,7 @@ def nat : Parser String Nat := do
     natNonZero
 
 @[inline]
-def numWithDecimals : Parser String JsonNumber := do
+def numWithDecimals : Parser JsonNumber := do
   let sign ← numSign
   let whole ← nat
   if ← isEof then
@@ -172,7 +172,7 @@ def numWithDecimals : Parser String JsonNumber := do
       pure <| JsonNumber.fromInt (sign * whole)
 
 @[inline]
-def exponent (value : JsonNumber) : Parser String JsonNumber := do
+def exponent (value : JsonNumber) : Parser JsonNumber := do
   if ← isEof then
     return value
   else
@@ -192,13 +192,13 @@ def exponent (value : JsonNumber) : Parser String JsonNumber := do
     else
       return value
 
-def num : Parser String JsonNumber := do
+def num : Parser JsonNumber := do
   let res : JsonNumber ← numWithDecimals
   exponent res
 
 mutual
 
-  partial def arrayCore (acc : Array Json) : Parser String (Array Json) := do
+  partial def arrayCore (acc : Array Json) : Parser (Array Json) := do
     let hd ← anyCore
     let acc' := acc.push hd
     let c ← any
@@ -211,7 +211,7 @@ mutual
     else
       fail "unexpected character in array"
 
-  partial def objectCore (kvs : RBNode String (fun _ => Json)) : Parser String (RBNode String (fun _ => Json)) := do
+  partial def objectCore (kvs : RBNode String (fun _ => Json)) : Parser (RBNode String (fun _ => Json)) := do
     lookahead (fun c => c == '"') "\""; skip;
     let k ← str; ws
     lookahead (fun c => c == ':') ":"; skip; ws
@@ -226,7 +226,7 @@ mutual
     else
       fail "unexpected character in object"
 
-  partial def anyCore : Parser String Json := do
+  partial def anyCore : Parser Json := do
     let c ← peek!
     if c == '[' then
       skip; ws
@@ -269,7 +269,7 @@ mutual
 
 end
 
-def any : Parser String Json := do
+def any : Parser Json := do
   ws
   let res ← anyCore
   eof
@@ -281,7 +281,6 @@ namespace Json
 
 def parse (s : String) : Except String Lean.Json :=
   Parser.run Json.Parser.any s
-  |>.mapError toString
 
 end Json
 

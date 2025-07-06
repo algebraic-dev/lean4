@@ -38,7 +38,7 @@ open Std.Internal.Parsec
 open Std.Internal.Parsec.ByteArray
 open LRAT.Parser.Text (skipNewline)
 
-def parsePartialAssignment : Parser String (Bool × (Array (Bool × Nat))) := do
+def parsePartialAssignment : Parser (Bool × (Array (Bool × Nat))) := do
   skipByteChar 'v'
   let idents ← many (attempt wsLit)
   let idents := idents.map (fun i => if i > 0 then (true, i.natAbs) else (false, i.natAbs))
@@ -51,14 +51,14 @@ def parsePartialAssignment : Parser String (Bool × (Array (Bool × Nat))) := do
     )
 where
   @[inline]
-  wsLit : Parser String Int := do
+  wsLit : Parser Int := do
     skipByteChar ' '
     LRAT.Parser.Text.parseLit
 
-partial def parseLines : Parser String (Array (Bool × Nat)) :=
+partial def parseLines : Parser (Array (Bool × Nat)) :=
   go #[]
 where
-  go (acc : Array (Bool × Nat)) : Parser String (Array (Bool × Nat)) := do
+  go (acc : Array (Bool × Nat)) : Parser (Array (Bool × Nat)) := do
     let (terminal?, additionalAssignment) ← parsePartialAssignment
     let acc := acc ++ additionalAssignment
     if terminal? then
@@ -67,7 +67,7 @@ where
       go acc
 
 @[inline]
-def parseHeader : Parser String Unit := do
+def parseHeader : Parser Unit := do
   skipString "s SATISFIABLE"
   skipNewline
 
@@ -77,7 +77,7 @@ line = "v" (" " lit)*\n
 terminal_line = "v" (" " lit)* (" " 0)\n
 witness = "s SATISFIABLE\n" line+ terminal_line
 -/
-def parse : Parser String (Array (Bool × Nat)) := do
+def parse : Parser (Array (Bool × Nat)) := do
   parseHeader
   parseLines
 

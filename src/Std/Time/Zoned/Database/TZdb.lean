@@ -45,7 +45,7 @@ def default : TZdb := {}
 Parses binary timezone data into zone rules based on a given timezone ID.
 -/
 def parseTZif (bin : ByteArray) (id : String) : Except String ZoneRules := do
-  let database ← TZif.parse.run bin |>.mapError toString
+  let database ← TZif.parse.run bin
   convertTZif database id
 
 /--
