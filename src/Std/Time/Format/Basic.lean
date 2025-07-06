@@ -1421,7 +1421,7 @@ Builds a `GenericFormat` from the input string. If parsing fails, it will panic
 def spec! (input : String) (config : FormatConfig := {}) : GenericFormat tz :=
   match specParser.run input with
   | .ok res => ⟨config, res⟩
-  | .error res => panic! toString res
+  | .error res => panic! res
 
 /--
 Formats a `DateTime` value into a string using the given `GenericFormat`.

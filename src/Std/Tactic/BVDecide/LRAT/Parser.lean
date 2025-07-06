@@ -289,7 +289,7 @@ def loadLRATProof (path : System.FilePath) : IO (Array IntAction) := do
   let proof ← IO.FS.readBinFile path
   match Parser.parseActions.run proof with
   | .ok actions => return actions
-  | .error err => throw <| .userError (toString err)
+  | .error err => throw <| .userError err
 
 /--
 Parse `proof` as an LRAT proof. `proof` may contain either the binary or the non-binary LRAT format.
