@@ -11,3 +11,4 @@ public import Std.Internal.Http.Data.Method
 public import Std.Internal.Http.Data.Request
 public import Std.Internal.Http.Data.Response
 public import Std.Internal.Http.Data.Status
+public import Std.Internal.Http.Data.URI

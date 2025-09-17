@@ -7,8 +7,9 @@ module
 
 prelude
 public import Init.Data
-public import Std.Internal.Parsec
 public import Std.Internal.Http.Data
+public import Std.Internal.Http.Data.URI.Parser
+public import Std.Internal.Parsec
 public import Std.Internal.Parsec.ByteArray
 
 namespace Std
@@ -103,7 +104,7 @@ Parses the request line.
 -/
 public def parseRequestLine : Parser Request.Head := do
   let method ← parseMethod <* sp
-  let uri ← parseURI
+  let uri ← Http.Data.Parser.parseRequestTarget
   let version ← parseHttpVersion
   parseCRLF
   return ⟨method, version, uri, .empty⟩

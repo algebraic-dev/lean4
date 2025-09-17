@@ -11,6 +11,7 @@ public import Std.Internal.Http.Encode
 public import Std.Internal.Http.Data.Headers
 public import Std.Internal.Http.Data.Method
 public import Std.Internal.Http.Data.Version
+public import Std.Internal.Http.Data.URI
 
 public section
 
@@ -35,13 +36,13 @@ structure Request.Head where
   /--
 
   -/
-  uri : String := "/"
+  uri : RequestTarget := .asteriskForm
 
   /--
 
   -/
   headers : Headers := .empty
-deriving Inhabited, Repr
+deriving Inhabited
 
 /--
 HTTP request structure parameterized by body type
@@ -62,7 +63,7 @@ namespace Request
 instance : ToString Head where
   toString req :=
     toString req.method ++ " " ++
-    req.uri ++ " " ++
+    toString req.uri ++ " " ++
     toString req.version ++
     "\r\n" ++
     toString req.headers ++ "\r\n\r\n"
