@@ -83,4 +83,4 @@ structure Config where
   /--
   The server name
   -/
-  serverName : Option String := "Lean-HTTP/1.1"
+  serverName : Option String := "LeanHTTP/1.1"

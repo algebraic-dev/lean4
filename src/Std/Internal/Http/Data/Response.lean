@@ -36,7 +36,7 @@ HTTP response structure parameterized by body type
 -/
 structure Response (t : Type) where
   head : Response.Head := {}
-  body : t
+  body : Option t
 deriving Inhabited
 
 /--
@@ -87,8 +87,14 @@ def header (builder : Builder) (key : String) (value : String) : Builder :=
 /--
 Builds and returns the final HTTP Response with the specified body
 -/
-def body (builder : Builder) (body : t) : Response t :=
+def body [Coe x t] (builder : Builder) (body : x) : Response t :=
   { head := builder.head, body := body }
+
+/--
+Builds and returns the final HTTP Response.
+-/
+def build (builder : Builder) : Response t :=
+  { head := builder.head, body := none }
 
 /--
 Builds and returns the final HTTP Response with the specified body
@@ -133,7 +139,7 @@ def ok [Coe x t] (body : x) : Response t :=
 /--
 Creates a new HTTP Response with the specified status and string body
 -/
-def buildWithStatus (status : Status) (body : String) : Response String :=
+def buildWithStatus  [Coe x t] (status : Status) (body : x) : Response t :=
   new
   |>.status status
   |>.body body

@@ -16,3 +16,14 @@ public section
 namespace Std
 namespace Http
 namespace Data
+namespace RequestTarget
+
+@[inline]
+def parse? (string : String) : Option RequestTarget :=
+  Parser.parseRequestTarget.run string.toUTF8 |>.toOption |>.get!
+
+@[inline]
+def parse! (string : String) : RequestTarget :=
+  parse? string |>.get!
+
+end RequestTarget

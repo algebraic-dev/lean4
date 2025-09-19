@@ -30,8 +30,9 @@ structure Connection where
 namespace Connection
 
 private def receiveWithTimeout (socket : Socket.Client) (expect : UInt64) (timeoutMs : Millisecond.Offset := 5000) : Async (Option (Option ByteArray)) := do
-  let result ← socket.recv? expect
-  return some result
+  Selectable.one #[
+    .case (← socket.recvSelector expect) (fun x => pure <| some x),
+  ]
 
 private def processNeedMoreData (machine : H1.Machine) (socket : Socket.Client) (expect : Option Nat) : Async (Except H1.Machine.Error (Option ByteArray)) := do
   try
@@ -42,12 +43,15 @@ private def processNeedMoreData (machine : H1.Machine) (socket : Socket.Client) 
     | some (some bytes) => pure (.ok <| some bytes)
     | some none => pure (.ok <| none)
     | none => pure (.error H1.Machine.Error.timeout)
-  catch _ => pure (.error H1.Machine.Error.timeout)
+
+  catch _ =>
+    pure (.error H1.Machine.Error.timeout)
 
 private def handle
   (connection : Connection)
   (handler : Data.Request Data.Body → Async (Data.Response Data.Body))
   (onFailure : Error → Async Unit)
+  (config : H1.Machine.Config)
   : Async Unit := do
     let mut machine := connection.machine
     let mut running := true
@@ -81,9 +85,9 @@ private def handle
           if machine.isWaitingResponse then
             machine := machine.sendResponse res.head
             match res.body with
-            | .bytes data => machine := machine.writeUserData data  |>.closeWriter
-            | .zero => machine := machine.closeWriter
-            | .stream res => do
+            | some (.bytes data) => machine := machine.writeUserData data |>.closeWriter
+            | some ( .zero) | none => machine := machine.closeWriter
+            | some (.stream res) => do
               if let some size ← res.getKnownSize then
                 machine := machine.setKnownSize size
 
@@ -121,16 +125,16 @@ private def handle
                 machine := machine.setFailure .timeout .requestTimeout
 
           | .endHeaders head => do
-            requestStream.setKnownSize <|
-              match H1.Machine.getRequestSize head with
-              | some (.fixed n) => some n
-              | _ => none
+            if let some (.fixed n) := H1.Machine.getRequestSize head then
+              requestStream.setKnownSize (some n)
 
             let newResponse := handler { head, body := .stream requestStream }
             let task ← newResponse.asTask
+
             BaseIO.chainTask task fun
               | .error res => errored.resolve res
               | .ok res => response.resolve res
+
           | .gotData final data =>
             discard <| requestStream.send data.toByteArray
 
@@ -139,12 +143,20 @@ private def handle
 
           | .chunkExt _ =>
             pure ()
+
           | .failed =>
             running := false
+
           | .close =>
             running := false
+
           | .next =>
             requestStream ← Data.Body.ByteStream.emptyWithCapacity
+            response ← IO.Promise.new
+            errored ← IO.Promise.new
+            respStream := none
+            sentResponse := false
+
     catch err =>
       onFailure err
 
@@ -158,17 +170,19 @@ def serve
   (onRequest : Data.Request Data.Body  → Async (Data.Response Data.Body))
   (onReady : Async Unit := pure ())
   (onFailure : Error → Async Unit := fun _ => pure ())
+  (config : H1.Machine.Config := {})
   (backlog : UInt32 := 128) : Async Unit := do
     let server ← Socket.Server.mk
     server.bind addr
     server.listen backlog
 
     onReady
+
     while true do
       let client ← server.accept
       background (prio := .max) <|
         Connection.mk {} client
-          |>.handle onRequest onFailure
+          |>.handle onRequest onFailure config
 
 end Http
 end Std

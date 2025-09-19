@@ -76,7 +76,6 @@ private def tryRecv' (stream : ByteStream) : Async (Option Util.BufferBuilder) :
   stream.state.atomically tryRecvFromBuffer'
 
 def tryRecv (stream : ByteStream) : Async (Option (Option Util.BufferBuilder)) := do
-  dbg_trace "try recv data"
   stream.state.atomically do
     match ← tryRecvFromBuffer' with
     | some ⟨#[], _⟩ => pure (some none)

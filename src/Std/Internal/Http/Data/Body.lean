@@ -57,3 +57,27 @@ instance : Coe Body.ByteStream Body where
 
 instance : Coe Body Body where
   coe := id
+
+@[inline]
+protected partial def forIn
+  {β : Type} (body : Body) (acc : β)
+  (step : ByteArray → β → Async (ForInStep β)) :
+  Async β := do
+    let rec @[specialize] loop (stream : ByteStream) (acc : β) : Async β := do
+      if let some data ← stream.recv then
+        match ← step data.toByteArray acc with
+        | .done res => pure res
+        | .yield res => loop stream res
+      else
+        return acc
+
+    match body with
+    | .zero => pure acc
+    | .bytes data =>
+      match ← step data acc with
+      | .done x => pure x
+      | .yield x => pure x
+    | .stream strea => loop strea acc
+
+instance : ForIn Async Body ByteArray where
+  forIn := Body.forIn

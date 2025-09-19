@@ -146,10 +146,8 @@ def parseUserInfo : Parser (ByteSlice × Option ByteSlice) := do
 
   return (userBytes.toByteSlice, none)
 
--- Host parsing (simplified)
 def parseHost : Parser ByteSlice := do
   if (← peek?).any (· == '['.toUInt8) then
-    -- IP literal
     let mut result : ByteArray := .empty
     while true do
       let c? ← peek?
@@ -161,7 +159,6 @@ def parseHost : Parser ByteSlice := do
         if c == ']'.toUInt8 then break
     return result.toByteSlice
   else
-    -- Regular name or IPv4
     takeWhileUpTo isRegNameChar 255
 
 def parseAuthority : Parser (Option (ByteSlice × Option ByteSlice) × Option ByteSlice × Option ByteSlice) := do

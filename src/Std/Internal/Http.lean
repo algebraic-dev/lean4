@@ -35,4 +35,4 @@ recomendation.
 
 -/
 
-export Std.Http.Data (Request Response Body Status Method)
+export Std.Http.Data (Request Response Body Status Method RequestTarget Request.Head Response.Head)

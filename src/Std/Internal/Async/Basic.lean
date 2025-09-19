@@ -935,6 +935,13 @@ instance : MonadAwait AsyncTask Async :=
 instance : MonadAwait IO.Promise Async :=
   inferInstanceAs (MonadAwait IO.Promise (EAsync IO.Error))
 
+instance : MonadExcept IO.Error Async where
+  throw := EAsync.throw
+  tryCatch := EAsync.tryCatch
+
+instance : MonadExceptOf IO.Error Async where
+  throw := EAsync.throw
+  tryCatch := EAsync.tryCatch
 /--
 Runs two computations concurrently and returns both results as a pair.
 -/

@@ -551,7 +551,7 @@ Checks if the type of the status code is informational, meaning that the request
 and the process is continuing.
 -/
 @[inline]
-def isInformational (c : Status) : Prop :=
+def isInformational (c : Status) : Bool :=
   c.toCode < 200
 
 /--
@@ -561,7 +561,7 @@ understood, and accepted.
 * Reference: https://httpwg.org/specs/rfc9110.html#status.codes
 -/
 @[inline]
-def isSuccess (c : Status) : Prop :=
+def isSuccess (c : Status) : Bool :=
   200 ≤ c.toCode ∧ c.toCode < 300
 
 /--
@@ -571,7 +571,7 @@ to complete the request.
 * Reference: https://httpwg.org/specs/rfc9110.html#status.codes
 -/
 @[inline]
-def isRedirection (c : Status) : Prop :=
+def isRedirection (c : Status) : Bool :=
   300 ≤ c.toCode ∧ c.toCode < 400
 
 /--
@@ -581,7 +581,7 @@ or cannot be fulfilled.
 * Reference: https://httpwg.org/specs/rfc9110.html#status.codes
 -/
 @[inline]
-def isClientError (c : Status) : Prop :=
+def isClientError (c : Status) : Bool :=
   400 ≤ c.toCode ∧ c.toCode < 500
 
 /--
@@ -591,7 +591,7 @@ an apparently valid request.
 * Reference: https://httpwg.org/specs/rfc9110.html#status.codes
 -/
 @[inline]
-def isServerError (c : Status) : Prop :=
+def isServerError (c : Status) : Bool :=
   500 ≤ c.toCode ∧ c.toCode < 600
 
 instance : Encode .v11 Status where

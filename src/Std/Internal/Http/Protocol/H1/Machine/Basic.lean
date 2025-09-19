@@ -25,14 +25,6 @@ namespace H1
 open Std Internal Parsec ByteArray Util
 
 /--
-Structure that says the condition of the Keep Alive.
--/
-inductive KeepAlive
-  | idle
-  | busy
-  | disabled
-
-/--
 Manages the reading state of the machine.
 -/
 structure Reader where
@@ -127,13 +119,9 @@ structure Writer where
 
 namespace Writer
 
-def sendResponse (writer : Writer) (response : Data.Response.Head) : Writer :=
-  match writer.state with
-  | .waitingHeaders =>
-    { writer with response, state := .waitingForFlush }
-  | _ =>
-    writer
-
+/--
+Rests and closes the connection
+-/
 def resetAndClose (writer : Writer) : Writer :=
   match writer.state with
   | .waitingForFlush =>
@@ -308,6 +296,10 @@ private def modifyWriter (machine : Machine) (fn : Writer → Writer) : Machine 
   { machine with writer := fn machine.writer }
 
 @[inline]
+private def resetAndClose (machine : Machine) : Machine :=
+  machine.modifyWriter (·.resetAndClose)
+
+@[inline]
 private def setWriterState (machine : Machine) (state : Writer.State) : Machine :=
   machine.modifyWriter ({ · with state })
 
@@ -385,14 +377,17 @@ private def resetForNextRequest (machine : Machine) : Machine :=
         requestCount := newRequestCount
       },
       writer := {
-        userData := BufferBuilder.empty,
+        userData := .empty,
+        chunkExt := .empty,
         outputData := machine.writer.outputData,
         isChunked := false,
         state := .waitingHeaders,
-        closed := false
-        knownSize := none
+        closed := false,
+        knownSize := none,
+        response := {},
       },
       events := machine.events.push .next,
+      error := none,
       instant := none
     }
   else
@@ -461,7 +456,11 @@ def setHeaders (response : Data.Response.Head) (machine : Machine) : Machine :=
       response.headers
 
   let headers := if let some date := machine.instant then headers.insert "Date" (date.format "EEE, dd MMM yyyy HH:mm:ss 'GMT'")  else  headers
-  let headers := if ¬machine.keepAlive then headers.insert "Connection" "close"  else headers
+
+  let headers := if ¬machine.keepAlive ∨ response.status.isClientError ∨ response.status.isServerError then
+    headers.insert "Connection" "close"
+  else
+    headers
 
   let response := { response with headers }
 
@@ -538,7 +537,14 @@ Sends the response
 def sendResponse (machine : Machine) (response : Data.Response.Head) : Machine :=
   match machine.writer.state with
   | .waitingHeaders =>
-    machine.modifyWriter ({ · with response, state := .waitingForFlush })
+    let machine := machine.modifyWriter ({ · with response, state := .waitingForFlush })
+    let conn := response.headers.getD "Connection"
+    if response.status.isClientError || response.status.isServerError || conn.contains "close" then
+      machine
+      |>.closeConnection
+      |>.setReaderState .complete  -- Stop receiving data
+    else
+      machine
   | _ =>
     machine
 
@@ -613,7 +619,6 @@ def processRead (machine : Machine) : Machine :=
       machine
 
   | .needFixedBody size =>
-    dbg_trace "RECEIVING {size}"
     let (machine, result) := parseWith machine (Parser.parseFixedSizeData size) (limit := none) (some size)
 
     if let some body := result then
@@ -633,10 +638,10 @@ def processRead (machine : Machine) : Machine :=
 
   | .failed response =>
     machine
-    |>.modifyWriter (·.sendResponse response |>.resetAndClose)
+    |>.sendResponse response
+    |>.resetAndClose
     |>.setReaderState .complete
     |>.closeConnection
-
 
 def failed (machine : Machine) : Bool :=
   match machine.reader.state with
