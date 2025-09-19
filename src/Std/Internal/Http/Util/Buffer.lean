@@ -12,6 +12,7 @@ public section
 
 namespace Std
 namespace Http
+namespace Util
 
 set_option linter.all true
 

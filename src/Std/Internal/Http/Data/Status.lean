@@ -13,7 +13,6 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
 
 set_option linter.all true
 

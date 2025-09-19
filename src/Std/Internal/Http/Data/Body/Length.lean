@@ -12,7 +12,6 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
 namespace Body
 
 /--

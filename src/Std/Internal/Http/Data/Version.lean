@@ -12,7 +12,6 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
 
 set_option linter.all true
 
@@ -42,12 +41,6 @@ inductive Version
 
 deriving Repr, Inhabited, BEq, DecidableEq
 
-instance : ToString Version where
-  toString
-    | .v11 => "HTTP/1.1"
-    | .v20 => "HTTP/2.0"
-    | .v30 => "HTTP/3.0"
-
 namespace Version
 
 /--
@@ -75,3 +68,9 @@ def toNumber : Version → (Nat × Nat)
   | .v11 => (1, 1)
   | .v20 => (2, 0)
   | .v30 => (3, 0)
+
+instance : ToString Version where
+  toString
+    | .v11 => "HTTP/1.1"
+    | .v20 => "HTTP/2.0"
+    | .v30 => "HTTP/3.0"

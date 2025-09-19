@@ -5,4 +5,5 @@ Authors: Sofia Rodrigues
 -/
 module
 
+prelude
 public import Std.Internal.Http.Protocol.H1

@@ -17,10 +17,15 @@ open Std Internal IO Async
 
 namespace Std
 namespace Http
-namespace Data
 namespace Body
 
-structure ByteStream.State where
+/-!
+This module defines the `ByteStream` structure that is a channel for byte arrays.
+-/
+
+public section
+
+private structure ByteStream.State where
   buffer : Util.BufferBuilder := .empty
   knownSize : Option Nat := none
   closed : Bool := false

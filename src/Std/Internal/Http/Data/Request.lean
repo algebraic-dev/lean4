@@ -19,7 +19,8 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
+
+set_option linter.all true
 
 open Lean
 
@@ -67,6 +68,10 @@ deriving Inhabited
 Builds a HTTP Request
 -/
 structure Request.Builder where
+
+  /--
+  The head of the request
+  -/
   head : Head := {}
 
 namespace Request

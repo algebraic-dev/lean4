@@ -5,8 +5,9 @@ Authors: Sofia Rodrigues
 -/
 module
 
+prelude
 public import Init
-public import Std.Internal.Http.Buffer
+public import Std.Internal.Http.Util.Buffer
 public import Std.Internal.Http.Data.Version
 
 public section
@@ -14,18 +15,20 @@ public section
 namespace Std
 namespace Http
 
+open Util
+
 set_option linter.all true
 
 /--
 Serializes a type `t` to a `Buffer` containing its canonical HTTP representation
 for protocol version `v`.
 -/
-class Encode (v : Data.Version) (t : Type) where
+class Encode (v : Version) (t : Type) where
 
   /--
   Encodes a type `t` to a `Buffer`.
   -/
   encode : Buffer → t → Buffer
 
-instance : Encode .v11 Data.Version where
+instance : Encode .v11 Version where
   encode buffer := buffer.writeString ∘ toString

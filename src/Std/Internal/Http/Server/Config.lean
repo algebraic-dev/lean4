@@ -8,13 +8,12 @@ module
 prelude
 public import Init
 public import Std.Time
+public import Std.Internal.Http.Protocol.H1
 
 public section
 
 namespace Std
 namespace Http
-namespace H1
-namespace Machine
 
 /--
 Connection limits configuration with validation.
@@ -46,41 +45,32 @@ structure Config where
   enableKeepAlive : Bool := true
 
   /--
-  Whether to enable chunked transfer encoding.
-  -/
-  enableChunked : Bool := true
-
-  /--
   Size threshold for flushing output buffer.
   -/
   highMark : Nat := 4096
 
   /--
-  Preserve header case
-  -/
-  preserveHeaderCase : Bool := false
-
-  /--
-  Maximum buffer size for the connection
-  -/
-  maximumBufferSize : Nat := 400 * 1024
-
-  /--
-  Default buffer size for the connection
+  Default buffer size for the connection.
   -/
   defaultPayloadBytes : Nat := 8192
 
   /--
-  Automatic Date Header.
-  -/
-  autoDateHeader : Bool := false
-
-  /--
-  Allow trailer fields.
-  -/
-  allowTrailer : Bool := false
-
-  /--
-  The server name
+  The server name.
   -/
   serverName : Option String := "LeanHTTP/1.1"
+
+namespace Config
+
+/--
+Converts to HTTP 1.1 config
+-/
+def toH1Config (config : Config) : Protocol.H1.Machine.Config :=
+  { maxRequests := config.maxRequests
+    maxHeaders := config.maxHeaders
+    maxHeaderSize := config.maxHeaderSize
+    timeoutSeconds := config.timeoutSeconds
+    enableKeepAlive := config.enableKeepAlive
+    highMark := config.highMark
+    defaultPayloadBytes := config.defaultPayloadBytes
+    serverName := config.serverName
+  }

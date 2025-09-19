@@ -7,22 +7,29 @@ module
 
 prelude
 public import Init
-public import Std.Data
+public import Std.Data.HashMap
+public import Std.Data.HashSet
 public import Std.Internal.Http.Encode
 
 public section
 
-open Std
-
 namespace Std
 namespace Http
-namespace Data
+
+set_option linter.all true
+
+open Std
 
 /--
 A structure for managing HTTP headers as key-value pairs.
 -/
 structure Headers where
+
+  /--
+  The internal hashmap that stores all the data.
+  -/
   data : HashMap String (String × HashSet String)
+
 deriving Repr, Inhabited
 
 namespace Headers
@@ -74,14 +81,6 @@ def insert (headers : Headers) (name : String) (value : String) : Headers :=
   let hm := if let some (name, hm) := data then (name, hm.insertMany words) else (name, words)
   { data := headers.data.insert key hm }
 
-instance : ToString Headers where
-  toString headers :=
-    let pairs := headers.data.toList.map (fun (_, (k, vs)) => s!"{k}: {String.intercalate ", " vs.toList}")
-    String.intercalate "\r\n" pairs
-
-instance : Encode .v11 Headers where
-  encode buffer := buffer.writeString ∘ toString
-
 /--
 Creates empty headers.
 -/
@@ -127,3 +126,11 @@ Merges two headers, with the second taking precedence for duplicate keys.
 -/
 def merge (headers1 headers2 : Headers) : Headers :=
   { data := headers2.data.fold (fun acc k v => acc.insert k.toLower v) headers1.data }
+
+instance : ToString Headers where
+  toString headers :=
+    let pairs := headers.data.toList.map (fun (_, (k, vs)) => s!"{k}: {String.intercalate ", " vs.toList}")
+    String.intercalate "\r\n" pairs
+
+instance : Encode .v11 Headers where
+  encode buffer := buffer.writeString ∘ toString

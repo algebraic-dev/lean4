@@ -13,39 +13,61 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
 
-/-
+set_option linter.all true
+
+/--
 A method is a verb that describes the action to be performed.
 
 * Reference: https://httpwg.org/specs/rfc9110.html#methods
 -/
 inductive Method where
+
+  /--
+  Retrieve a resource.
+  -/
   | get
+
+  /--
+  Retrieve headers for a resource, without the body.
+  -/
   | head
+
+  /--
+  Submit data to be processed (e.g., form submission).
+  -/
   | post
+
+  /--
+  Replace a resource with new data.
+  -/
   | put
+
+  /--
+  Remove a resource.
+  -/
   | delete
+
+  /--
+  Establish a tunnel to a server (often for TLS).
+  -/
   | connect
+
+  /--
+  Describe communication options for a resource.
+  -/
   | options
+
+  /--
+  Perform a message loop-back test.
+  -/
   | trace
+
+  /--
+  Apply partial modifications to a resource.
+  -/
   | patch
-  deriving Repr, Inhabited, BEq
-
-instance : ToString Method where
-  toString
-    | .get => "GET"
-    | .head => "HEAD"
-    | .post => "POST"
-    | .put => "PUT"
-    | .delete => "DELETE"
-    | .connect => "CONNECT"
-    | .options => "OPTIONS"
-    | .trace => "TRACE"
-    | .patch => "PATCH"
-
-instance : Encode .v11 Method where
-  encode buffer := buffer.writeString ∘ toString
+deriving Repr, Inhabited, BEq
 
 namespace Method
 
@@ -94,7 +116,21 @@ def allowsRequestBody : Method → Prop
   | .get | .head => False
   | _ => True
 
+instance : ToString Method where
+  toString
+    | .get => "GET"
+    | .head => "HEAD"
+    | .post => "POST"
+    | .put => "PUT"
+    | .delete => "DELETE"
+    | .connect => "CONNECT"
+    | .options => "OPTIONS"
+    | .trace => "TRACE"
+    | .patch => "PATCH"
+
+instance : Encode .v11 Method where
+  encode buffer := buffer.writeString ∘ toString
+
 end Method
-end Data
 end Http
 end Std

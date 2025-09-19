@@ -15,13 +15,13 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
 namespace Parser
 
-open Data
+set_option linter.all true
+
 open Std Internal Parsec ByteArray
 
-structure UriComponents where
+private structure UriComponents where
   schema : Option ByteSlice
   userinfo : Option (ByteSlice × Option ByteSlice)
   host : Option ByteSlice
@@ -31,83 +31,83 @@ structure UriComponents where
   fragment : Option ByteSlice
 
 @[inline]
-def isDigit (c : UInt8) : Bool :=
+private def isDigit (c : UInt8) : Bool :=
   c >= '0'.toUInt8 && c <= '9'.toUInt8
 
 @[inline]
-def isHexDigit (c : UInt8) : Bool :=
+private def isHexDigit (c : UInt8) : Bool :=
   isDigit c || (c >= 'A'.toUInt8 && c <= 'F'.toUInt8) || (c >= 'a'.toUInt8 && c <= 'f'.toUInt8)
 
 @[inline]
-def isAlpha (c : UInt8) : Bool :=
+private def isAlpha (c : UInt8) : Bool :=
   (c >= 'A'.toUInt8 && c <= 'Z'.toUInt8) || (c >= 'a'.toUInt8 && c <= 'z'.toUInt8)
 
 @[inline]
-def isAlphaNum (c : UInt8) : Bool :=
+private def isAlphaNum (c : UInt8) : Bool :=
   isAlpha c || isDigit c
 
 @[inline]
-def isUnreserved (c : UInt8) : Bool :=
+private def isUnreserved (c : UInt8) : Bool :=
   isAlphaNum c || c == '-'.toUInt8 || c == '.'.toUInt8 || c == '_'.toUInt8 || c == '~'.toUInt8
 
 @[inline]
-def isSubDelims (c : UInt8) : Bool :=
+private def isSubDelims (c : UInt8) : Bool :=
   c == '!'.toUInt8 || c == '$'.toUInt8 || c == '&'.toUInt8 || c == '\''.toUInt8 ||
   c == '('.toUInt8 || c == ')'.toUInt8 || c == '*'.toUInt8 || c == '+'.toUInt8 ||
   c == ','.toUInt8 || c == ';'.toUInt8 || c == '='.toUInt8
 
 @[inline]
-def isGenDelims (c : UInt8) : Bool :=
+private def isGenDelims (c : UInt8) : Bool :=
   c == ':'.toUInt8 || c == '/'.toUInt8 || c == '?'.toUInt8 || c == '#'.toUInt8 ||
   c == '['.toUInt8 || c == ']'.toUInt8 || c == '@'.toUInt8
 
 @[inline]
-def isReserved (c : UInt8) : Bool :=
+private def isReserved (c : UInt8) : Bool :=
   isGenDelims c || isSubDelims c
 
 @[inline]
-def isPChar (c : UInt8) : Bool :=
+private def isPChar (c : UInt8) : Bool :=
   isUnreserved c || isSubDelims c || c == ':'.toUInt8 || c == '@'.toUInt8 || c == '%'.toUInt8
 
 @[inline]
-def isRegNameChar (c : UInt8) : Bool :=
+private def isRegNameChar (c : UInt8) : Bool :=
   isUnreserved c || isSubDelims c || c == '%'.toUInt8
 
 @[inline]
-def isSchemeChar (c : UInt8) : Bool :=
+private def isSchemeChar (c : UInt8) : Bool :=
   isAlphaNum c || c == '+'.toUInt8 || c == '-'.toUInt8 || c == '.'.toUInt8
 
 @[inline]
-def isQueryChar (c : UInt8) : Bool :=
+private def isQueryChar (c : UInt8) : Bool :=
   isPChar c || c == '/'.toUInt8 || c == '?'.toUInt8
 
 @[inline]
-def isFragmentChar (c : UInt8) : Bool :=
+private def isFragmentChar (c : UInt8) : Bool :=
   isPChar c || c == '/'.toUInt8 || c == '?'.toUInt8
 
 @[inline]
-def isUserInfoChar (c : UInt8) : Bool :=
+private def isUserInfoChar (c : UInt8) : Bool :=
   isUnreserved c || isSubDelims c || c == '%'.toUInt8
 
-def failNone (x : Option α) : Parser α :=
+private def failNone (x : Option α) : Parser α :=
   if let some res := x then
     pure res
   else
     fail "expected value but got none"
 
-def tryOpt (p : Parser α) : Parser (Option α) := optional (attempt p)
+private def tryOpt (p : Parser α) : Parser (Option α) := optional (attempt p)
 
-def parsePctEncoded : Parser ByteSlice := do
+private def parsePctEncoded : Parser ByteSlice := do
   skipByte '%'.toUInt8
   takeWhileUpTo1 isHexDigit 2
 
-def parseScheme : Parser ByteSlice := do
+private def parseScheme : Parser ByteSlice := do
   takeWhileUpTo1 isSchemeChar 63
 
-def parsePort : Parser ByteSlice := do
+private def parsePort : Parser ByteSlice := do
   takeWhileUpTo isDigit 5
 
-def parseUserInfo : Parser (ByteSlice × Option ByteSlice) := do
+private def parseUserInfo : Parser (ByteSlice × Option ByteSlice) := do
   let mut userBytes : ByteArray := .empty
 
   -- Parse user part
@@ -146,7 +146,7 @@ def parseUserInfo : Parser (ByteSlice × Option ByteSlice) := do
 
   return (userBytes.toByteSlice, none)
 
-def parseHost : Parser ByteSlice := do
+private def parseHost : Parser ByteSlice := do
   if (← peek?).any (· == '['.toUInt8) then
     let mut result : ByteArray := .empty
     while true do
@@ -161,7 +161,7 @@ def parseHost : Parser ByteSlice := do
   else
     takeWhileUpTo isRegNameChar 255
 
-def parseAuthority : Parser (Option (ByteSlice × Option ByteSlice) × Option ByteSlice × Option ByteSlice) := do
+private def parseAuthority : Parser (Option (ByteSlice × Option ByteSlice) × Option ByteSlice × Option ByteSlice) := do
   let userinfo ← tryOpt do
     let ui ← parseUserInfo
     skipByte '@'.toUInt8
@@ -177,10 +177,10 @@ def parseAuthority : Parser (Option (ByteSlice × Option ByteSlice) × Option By
 
   return (userinfo, some host, port)
 
-def parseSegment : Parser ByteSlice := do
+private def parseSegment : Parser ByteSlice := do
   takeWhileUpTo (fun c => isPChar c && c != '/'.toUInt8) 1024
 
-def parsePathSegments : Parser ByteArray := do
+private def parsePathSegments : Parser ByteArray := do
   let mut result : ByteArray := .empty
   let mut first := true
 
@@ -197,13 +197,13 @@ def parsePathSegments : Parser ByteArray := do
 
   return result
 
-def parseQuery : Parser ByteSlice := do
+private def parseQuery : Parser ByteSlice := do
   takeWhileUpTo isQueryChar 4096
 
-def parseFragment : Parser ByteSlice := do
+private def parseFragment : Parser ByteSlice := do
   takeWhileUpTo isFragmentChar 1024
 
-public def parseUri : Parser UriComponents := do
+private def parseUri : Parser UriComponents := do
   let mut components : UriComponents := ⟨none, none, none, none, none, none, none⟩
 
   let schemeResult ← tryOpt do
@@ -230,14 +230,14 @@ public def parseUri : Parser UriComponents := do
 
   return components
 
-def parsePortNumber (portBytes : ByteSlice) : Option UInt16 := do
+private def parsePortNumber (portBytes : ByteSlice) : Option UInt16 := do
   let portStr := String.fromUTF8! portBytes.toByteArray
   String.toNat? portStr >>= (fun n => if n ≤ 65535 then some n.toUInt16 else none)
 
-def componentToUserInfo (userBytes : ByteSlice) (passBytes : Option ByteSlice) : Option URI.UserInfo := do
+private def componentToUserInfo (userBytes : ByteSlice) (passBytes : Option ByteSlice) : Option URI.UserInfo := do
   return { user := String.fromUTF8! userBytes.toByteArray, pass := String.fromUTF8! <$> passBytes.map (·.toByteArray) }
 
-def componentToHost (hostBytes : ByteSlice) : Option URI.Host := do
+private def componentToHost (hostBytes : ByteSlice) : Option URI.Host := do
   let hostStr ← String.fromUTF8! hostBytes.toByteArray
 
   if hostStr.startsWith "[" && hostStr.endsWith "]" then
@@ -247,7 +247,7 @@ def componentToHost (hostBytes : ByteSlice) : Option URI.Host := do
   else
     return .name hostStr
 
-def componentToPath (pathBytes : Option ByteArray) : URI.Path :=
+private def componentToPath (pathBytes : Option ByteArray) : URI.Path :=
   match pathBytes with
   | none => { segments := #[], absolute := false }
   | some bytes =>
@@ -257,7 +257,7 @@ def componentToPath (pathBytes : Option ByteArray) : URI.Path :=
     let segments := if cleanPath.isEmpty then #[] else cleanPath.splitOn "/" |>.toArray
     { segments := segments, absolute := isAbsolute }
 
-def componentToQuery (queryBytes : Option ByteSlice) : Option URI.Query :=
+private def componentToQuery (queryBytes : Option ByteSlice) : Option URI.Query :=
   queryBytes.map fun bytes =>
     let queryStr := String.fromUTF8! bytes.toByteArray
     let pairs := queryStr.splitOn "&" |>.map fun pair =>
@@ -267,7 +267,7 @@ def componentToQuery (queryBytes : Option ByteSlice) : Option URI.Query :=
       | [] => ("", none)
     pairs.toArray
 
-def componentToAuthority (userinfo : Option (ByteSlice × Option ByteSlice)) (host : Option ByteSlice) (port : Option ByteSlice) : Parser (Option URI.Authority) := do
+private def componentToAuthority (userinfo : Option (ByteSlice × Option ByteSlice)) (host : Option ByteSlice) (port : Option ByteSlice) : Parser (Option URI.Authority) := do
   let some hostBytes := host
     | return none
 
@@ -280,7 +280,7 @@ def componentToAuthority (userinfo : Option (ByteSlice × Option ByteSlice)) (ho
 
   return (some { userInfo := userinfoValue, host := hostValue, port := portValue })
 
-def componentToUri (comp : UriComponents) : Parser URI := do
+private def componentToUri (comp : UriComponents) : Parser URI := do
   let scheme := comp.schema.map (String.fromUTF8! ∘ ByteSlice.toByteArray)
   let authority ← componentToAuthority comp.userinfo comp.host comp.port
   let path := componentToPath comp.path
@@ -289,6 +289,9 @@ def componentToUri (comp : UriComponents) : Parser URI := do
 
   return { scheme, authority, path, query, fragment }
 
+/--
+Parses a request target.
+-/
 public def parseRequestTarget : Parser RequestTarget := do
   if (← tryOpt (do skipByte '*'.toUInt8; eof)).isSome then
     return .asteriskForm
@@ -318,6 +321,5 @@ public def parseRequestTarget : Parser RequestTarget := do
   return .originForm uri.path uri.query
 
 end Parser
-end Data
 end Http
 end Std

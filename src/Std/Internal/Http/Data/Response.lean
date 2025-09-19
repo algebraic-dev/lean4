@@ -18,16 +18,32 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
 
+set_option linter.all true
+
+open Util
 open Lean
 
 /--
 The main parts of a response.
 -/
 structure Response.Head where
+
+  /--
+  The HTTP status code and reason phrase, indicating the result of the request.
+  For example, `.ok` corresponds to `200 OK`.
+  -/
   status : Status := .ok
+
+  /--
+  The HTTP protocol version used in the response, e.g. `HTTP/1.1`.
+  -/
   version : Version := .v11
+
+  /--
+  The set of response headers, providing metadata such as `Content-Type`,
+  `Content-Length`, and caching directives.
+  -/
   headers : Headers := .empty
 deriving Inhabited, Repr
 
@@ -35,7 +51,15 @@ deriving Inhabited, Repr
 HTTP response structure parameterized by body type
 -/
 structure Response (t : Type) where
+
+  /--
+  The information of the status-line of the request.
+  -/
   head : Response.Head := {}
+
+  /--
+  The content of the request.
+  -/
   body : Option t
 deriving Inhabited
 
@@ -43,6 +67,10 @@ deriving Inhabited
 Builds a HTTP Response
 -/
 structure Response.Builder where
+
+  /--
+  The information of the status-line of the request.
+  -/
   head : Head := {}
 
 namespace Response

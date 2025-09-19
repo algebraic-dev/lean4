@@ -14,9 +14,9 @@ public section
 
 namespace Std
 namespace Http
-namespace Data
-
 namespace URI
+
+set_option linter.all true
 
 /--
 URI scheme (e.g., "http", "https", "ftp").
@@ -27,7 +27,14 @@ abbrev Scheme := String
 User information component containing username and password.
 -/
 structure UserInfo where
+  /--
+  Optional username to include in the authority portion of a URI.
+  -/
   user : Option String
+
+  /--
+  Optional password associated with the username, rarely used in modern practice.
+  -/
   pass : Option String
 deriving Inhabited, Repr
 
@@ -35,15 +42,26 @@ deriving Inhabited, Repr
 Host component of a URI, supporting domain names and IP addresses.
 -/
 inductive Host
+  /--
+  A registered name (typically a domain name).
+  -/
   | name (name : String)
+
+  /--
+  An IPv4 address.
+  -/
   | ipv4 (ipv4 : Net.IPv4Addr)
+
+  /--
+  An IPv6 address.
+  -/
   | ipv6 (ipv6 : Net.IPv6Addr)
 deriving Inhabited
 
 instance : Repr Host where
   reprPrec x prec :=
     let nestPrec := (if prec ≥ 1024 then 1 else 2)
-    let name := "Std.Http.Data.URI.Host"
+    let name := "Std.Http.URI.Host"
     let repr (ctr : String) a := Repr.addAppParen (Format.nest nestPrec (.text s!"{name}.{ctr}" ++ .line ++ a)).group prec
     match x with
     | Host.name a => repr "name" (reprArg a)
@@ -62,8 +80,20 @@ on the network.
 * Reference: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.2
 -/
 structure Authority where
+
+  /--
+  Optional user information (username and optional password).
+  -/
   userInfo: Option UserInfo := none
+
+  /--
+  The host identifying the network location of the resource.
+  -/
   host: Host
+
+  /--
+  Optional port number for connecting to the host.
+  -/
   port: Option Port := none
 deriving Inhabited, Repr
 
@@ -71,12 +101,19 @@ deriving Inhabited, Repr
 Abstraction of paths.
 -/
 structure Path where
+  /--
+  Path segments making up the hierarchical structure.
+  -/
   segments : Array String
+
+  /--
+  Whether the path is absolute (begins with a `/`) or relative.
+  -/
   absolute : Bool := false
 deriving Inhabited, Repr
 
 /--
-Query
+Query string represented as an array of key–value pairs.
 -/
 abbrev Query := Array (String × Option String)
 
@@ -223,6 +260,5 @@ instance : ToString RequestTarget where
     | .authorityForm auth => toString auth
     | .asteriskForm => "*"
 
-end Data
 end Http
 end Std

@@ -7,12 +7,6 @@ module
 
 prelude
 public import Init
-public import Std.Sync
-public import Std.Internal.Async
-public import Std.Internal.Http.Encode
-public import Std.Internal.Http.Data.Headers
-public import Std.Internal.Http.Data.Method
-public import Std.Internal.Http.Data.Version
 public import Std.Internal.Http.Data.Body.Length
 public import Std.Internal.Http.Data.Body.ByteStream
 
@@ -22,7 +16,6 @@ open Std Internal IO Async
 
 namespace Std
 namespace Http
-namespace Data
 
 /--
 Inductive type for HTTP body content
