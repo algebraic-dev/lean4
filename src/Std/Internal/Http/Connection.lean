@@ -128,7 +128,7 @@ private def handle
             if let some (.fixed n) := H1.Machine.getRequestSize head then
               requestStream.setKnownSize (some n)
 
-            let newResponse := handler { head, body := .stream requestStream }
+            let newResponse := handler { head, body := (.stream requestStream) }
             let task ← newResponse.asTask
 
             BaseIO.chainTask task fun

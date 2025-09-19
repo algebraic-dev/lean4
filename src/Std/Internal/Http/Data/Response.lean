@@ -87,7 +87,7 @@ def header (builder : Builder) (key : String) (value : String) : Builder :=
 /--
 Builds and returns the final HTTP Response with the specified body
 -/
-def body [Coe x t] (builder : Builder) (body : x) : Response t :=
+def body (builder : Builder) (body : t) : Response t :=
   { head := builder.head, body := body }
 
 /--
@@ -133,13 +133,13 @@ end Builder
 /--
 Creates a new HTTP Response with OK status and the provided string body
 -/
-def ok [Coe x t] (body : x) : Response t :=
+def ok (body : t) : Response t :=
   new.body body
 
 /--
 Creates a new HTTP Response with the specified status and string body
 -/
-def buildWithStatus  [Coe x t] (status : Status) (body : x) : Response t :=
+def buildWithStatus (status : Status) (body : t) : Response t :=
   new
   |>.status status
   |>.body body

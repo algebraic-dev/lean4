@@ -60,7 +60,7 @@ structure Request (t : Type) where
   /--
   The request body content of type t
   -/
-  body : Option t
+  body : t
 deriving Inhabited
 
 /--
@@ -117,6 +117,12 @@ def uri (builder : Builder) (uri : RequestTarget) : Builder :=
   { builder with head := { builder.head with uri := uri } }
 
 /--
+Sets the request target/URI for the request being built
+-/
+def uri! (builder : Builder) (uri : String) : Builder :=
+  { builder with head := { builder.head with uri := RequestTarget.parse! uri } }
+
+/--
 Adds a single header to the request being built
 -/
 def header (builder : Builder) (key : String) (value : String) : Builder :=
@@ -125,14 +131,14 @@ def header (builder : Builder) (key : String) (value : String) : Builder :=
 /--
 Builds and returns the final HTTP Request with the specified body
 -/
-def body [Coe x t] (builder : Builder) (body : x) : Request t :=
+def body (builder : Builder) (body : t) : Request t :=
   { head := builder.head, body := body }
 
 /--
 Builds and returns the final HTTP Request without a body
 -/
-def build (builder : Builder) : Request t :=
-  { head := builder.head, body := none }
+def build (builder : Builder) : Request Body :=
+  { head := builder.head, body := .zero }
 
 /--
 Builds and returns the final HTTP Request with the specified body as JSON
@@ -180,7 +186,7 @@ end Builder
 /--
 Creates a new HTTP GET Request with the specified URI
 -/
-def get (uri : RequestTarget) : Request t :=
+def get (uri : RequestTarget) : Request Body :=
   new
   |>.method .get
   |>.uri uri
@@ -189,7 +195,7 @@ def get (uri : RequestTarget) : Request t :=
 /--
 Creates a new HTTP POST Request with the specified URI and body
 -/
-def post [Coe x t] (uri : RequestTarget) (body : x) : Request t :=
+def post (uri : RequestTarget) (body : t) : Request t :=
   new
   |>.method .post
   |>.uri uri
@@ -198,7 +204,7 @@ def post [Coe x t] (uri : RequestTarget) (body : x) : Request t :=
 /--
 Creates a new HTTP PUT Request with the specified URI and body
 -/
-def put [Coe x t] (uri : RequestTarget) (body : x) : Request t :=
+def put (uri : RequestTarget) (body : t) : Request t :=
   new
   |>.method .put
   |>.uri uri
@@ -207,7 +213,7 @@ def put [Coe x t] (uri : RequestTarget) (body : x) : Request t :=
 /--
 Creates a new HTTP DELETE Request with the specified URI
 -/
-def delete (uri : RequestTarget) : Request t :=
+def delete (uri : RequestTarget) : Request Body :=
   new
   |>.method .delete
   |>.uri uri
@@ -216,7 +222,7 @@ def delete (uri : RequestTarget) : Request t :=
 /--
 Creates a new HTTP PATCH Request with the specified URI and body
 -/
-def patch [Coe x t] (uri : RequestTarget) (body : x) : Request t :=
+def patch (uri : RequestTarget) (body : t) : Request t :=
   new
   |>.method .patch
   |>.uri uri
