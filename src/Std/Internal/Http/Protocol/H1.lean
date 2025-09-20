@@ -232,7 +232,7 @@ inductive Writer.State
   State when response is fully sent and ready to the next request.
   -/
   | complete : State
-deriving BEq
+deriving BEq, Repr
 
 /--
 Manages the reading state of the machine.

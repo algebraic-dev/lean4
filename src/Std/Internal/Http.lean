@@ -6,33 +6,25 @@ Authors: Sofia Rodrigues
 module
 
 prelude
-public import Init.System.IO
-public import Init.System.Promise
-public import Std.Internal.Http.Basic
 public import Std.Internal.Http.Data
-public import Std.Internal.Http.Protocol
-public import Std.Internal.Http.Connection
+public import Std.Internal.Http.Server
 
 public section
 
 namespace Std
 namespace Http
 
+set_option linter.all true
+
 /-!
 # Http
 
-The Lean API for Http.
+It's a "low level" HTTP 1.1 implementation for LEAN. It is designed to be used with or without the
+`Async` library if you want to implement a custom `Connection`.
 
 # Overview
 
 This module of the standard library defines a lot of concepts related to HTTP protocol
 and the semantics in a Sans/IO format.
 
-# Http 1.1
-
-It's made mainly for Http 1.1 using https://httpwg.org/specs/rfc9112.html as the main
-recomendation.
-
 -/
-
-export Std.Http.Data (Request Response Body Status Method RequestTarget Request.Head Response.Head)

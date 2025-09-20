@@ -182,7 +182,6 @@ private def handle
 
     catch err =>
       onFailure err
-
 end Connection
 
 /--

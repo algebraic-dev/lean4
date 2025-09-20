@@ -114,7 +114,7 @@ def hex : Parser Nat := do
 -- HTTP-version  = HTTP-name "/" DIGIT "." DIGIT
 -- HTTP-name     = %s"HTTP"
 def parseHttpVersion : Parser Version := do
-  skipBytes " HTTP/".toUTF8
+  skipBytes "HTTP/".toUTF8
   let major ← uint8
   skipByte '.'.toUInt8
   let minor ← uint8
@@ -151,7 +151,7 @@ Parses a single header.
 field-line CRLF / CRLF
 -/
 public def parseSingleHeader (headerLimit : Nat) : Parser (Option (String × String)) :=
-  optional (parseFieldLine headerLimit) <* crlf
+  optional (attempt <| parseFieldLine headerLimit) <* crlf
 
 -- quoted-pair = "\" ( HTAB / SP / VCHAR / obs-text )
 def parseQuotedPair : Parser UInt8 := do
