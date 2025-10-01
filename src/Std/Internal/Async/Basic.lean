@@ -70,11 +70,11 @@ with non async code that uses them.
 Typeclass for monads that can "await" a computation of type `t α` in a monad `m` until the result is
 available.
 -/
-class MonadAwait (t : Type → Type) (m : Type → Type) where
+class MonadAwait (t : Type) (m : Type → Type) (r : outParam Type) where
   /--
   Awaits the result of `t α` and returns it inside the `m` monad.
   -/
-  await : t α → m α
+  await : t → m r
 
 /--
 Represents monads that can launch computations asynchronously of type `t` in a monad `m`.
@@ -91,23 +91,23 @@ can function correctly within monad transformers.
 -/
 
 @[default_instance]
-instance [Monad m] [MonadAwait t m] : MonadAwait t (StateT n m) where
+instance {m t : Type → Type} {a r : Type} [Monad m] [MonadAwait (t a) m r] : MonadAwait (t a) (StateT n m) r where
   await := liftM (m := m) ∘ MonadAwait.await
 
 @[default_instance]
-instance [Monad m] [MonadAwait t m] : MonadAwait t (ExceptT n m) where
+instance {t : Type} {m : Type → Type} {r : Type} [Monad m] [MonadAwait t m r] : MonadAwait t (ExceptT n m) r where
   await := liftM (m := m) ∘ MonadAwait.await
 
 @[default_instance]
-instance [Monad m] [MonadAwait t m] : MonadAwait t (ReaderT n m) where
+instance {t : Type} {m : Type → Type} {r : Type} [Monad m] [MonadAwait t m r] : MonadAwait t (ReaderT n m) r where
   await := liftM (m := m) ∘ MonadAwait.await
 
 @[default_instance]
-instance [MonadAwait t m] : MonadAwait t (StateRefT' s n m) where
+instance {t : Type} {m : Type → Type} {r : Type} [MonadAwait t m r] : MonadAwait t (StateRefT' s n m) r where
   await := liftM (m := m) ∘ MonadAwait.await
 
 @[default_instance]
-instance [Monad m] [MonadAwait t m] : MonadAwait t (StateT s m) where
+instance {t : Type} {m : Type → Type} {r : Type} [Monad m] [MonadAwait t m r] : MonadAwait t (StateT s m) r where
   await := liftM (m := m) ∘ MonadAwait.await
 
 @[default_instance]
@@ -485,7 +485,7 @@ instance : Monad BaseAsync where
 instance : MonadLift BaseIO BaseAsync where
   monadLift := BaseAsync.lift
 
-instance : MonadAwait Task BaseAsync where
+instance : MonadAwait (Task α) BaseAsync α where
   await := BaseAsync.await
 
 instance : MonadAsync Task BaseAsync where
@@ -722,16 +722,16 @@ instance : OrElse (EAsync ε α) where
 instance [Inhabited ε] : Inhabited (EAsync ε α) where
   default := .mk <| BaseAsync.pure default
 
-instance : MonadAwait (ETask ε) (EAsync ε) where
+instance : MonadAwait (ETask ε α) (EAsync ε) α where
   await t := .mk <| BaseAsync.ofTask t
 
-instance : MonadAwait Task (EAsync ε) where
+instance : MonadAwait (Task α) (EAsync ε) α where
   await t := .mk <| BaseAsync.ofTask (t.map (.ok))
 
-instance : MonadAwait AsyncTask (EAsync IO.Error) where
+instance : MonadAwait (AsyncTask α) (EAsync IO.Error) α where
   await t := .mk <| BaseAsync.ofTask t
 
-instance : MonadAwait IO.Promise (EAsync ε) where
+instance : MonadAwait (IO.Promise α) (EAsync ε) α where
   await t := .mk <| BaseAsync.ofTask (t.result!.map (.ok))
 
 instance : MonadAsync (ETask ε) (EAsync ε) where
@@ -914,11 +914,11 @@ protected def ofPurePromise (task : IO (IO.Promise α)) : Async α := do
 instance : MonadAsync AsyncTask Async :=
   inferInstanceAs (MonadAsync (ETask IO.Error) (EAsync IO.Error))
 
-instance : MonadAwait AsyncTask Async :=
-  inferInstanceAs (MonadAwait AsyncTask (EAsync IO.Error))
+instance : MonadAwait (AsyncTask α) Async α :=
+  inferInstanceAs (MonadAwait (AsyncTask α) (EAsync IO.Error) α)
 
-instance : MonadAwait IO.Promise Async :=
-  inferInstanceAs (MonadAwait IO.Promise (EAsync IO.Error))
+instance : MonadAwait (IO.Promise α) Async α :=
+  inferInstanceAs (MonadAwait (IO.Promise α) (EAsync IO.Error) α)
 
 /--
 Runs two computations concurrently and returns both results as a pair.

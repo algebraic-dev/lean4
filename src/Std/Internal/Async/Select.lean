@@ -85,6 +85,12 @@ structure Selector (α : Type) where
   -/
   unregisterFn : Async Unit
 
+class ToSelector (t : Type) (α : outParam Type) where
+  toSelector : t → Async (Selector α)
+
+instance : ToSelector (Selector α) α where
+  toSelector := pure
+
 /--
 An event source together with a continuation to call on data obtained from that event source,
 usually used together in conjunction with `Selectable.one`.
